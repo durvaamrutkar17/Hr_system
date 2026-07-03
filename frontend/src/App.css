@@ -1,0 +1,50 @@
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-container {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  margin-left: 250px;
+  transition: margin-left 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    margin-left: 0;
+  }
+}
+
+.placeholder-page {
+  padding: 40px;
+  text-align: center;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 70px);
+}
+
+.placeholder-page h1 {
+  color: #1b4d4d;
+  margin-bottom: 20px;
+}
+
+.placeholder-page p {
+  color: #999;
+  font-size: 16px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 18px;
+  color: #666;
+}

@@ -1,0 +1,294 @@
+.payroll-page {
+  padding: 30px 40px;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 70px);
+}
+
+.eyebrow {
+  margin: 0;
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.page-title {
+  margin: 4px 0 20px 0;
+  color: #333;
+  font-size: 26px;
+}
+
+.section-title {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.loading-text {
+  color: #888;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.no-records {
+  text-align: center;
+  padding: 30px 20px;
+  color: #999;
+  margin: 0;
+}
+
+.calculator-card,
+.claims-card {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+}
+
+/* Payroll rows */
+.payroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.payroll-row {
+  background-color: #f7f6f1;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.payroll-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.emp-name {
+  margin: 0;
+  font-weight: 700;
+  color: #1b1b1b;
+  font-size: 15px;
+}
+
+.emp-role {
+  margin: 4px 0 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.processed-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 11px;
+  background-color: #d4edda;
+  color: #155724;
+  white-space: nowrap;
+  height: fit-content;
+}
+
+.payroll-figures {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.figure-label {
+  display: block;
+  margin: 0 0 6px 0;
+  color: #888;
+  font-size: 12px;
+}
+
+.figure-value {
+  margin: 0;
+  font-weight: 700;
+  color: #1b1b1b;
+  font-size: 16px;
+}
+
+.figure-value.negative {
+  color: #c0392b;
+}
+
+.figure-value.net {
+  color: #1b4d4d;
+}
+
+.figure input[type='number'] {
+  width: 80px;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.figure input[type='number']:focus {
+  outline: none;
+  border-color: #1b4d4d;
+}
+
+.edit-toggle-btn {
+  background: none;
+  border: none;
+  color: #b3401f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.edit-toggle-btn:hover {
+  text-decoration: underline;
+}
+
+.structure-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e3da;
+}
+
+.structure-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.structure-group label {
+  margin-bottom: 6px;
+  color: #555;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.structure-group input {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.structure-group input:focus {
+  outline: none;
+  border-color: #1b4d4d;
+}
+
+.process-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  background-color: #d4af37;
+  color: #1b1b1b;
+  transition: all 0.3s ease;
+}
+
+.process-btn:hover:not(:disabled) {
+  background-color: #c49b2a;
+}
+
+.process-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Reimbursement claims */
+.claims-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.claim-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid #eee;
+  border-radius: 6px;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.claim-title {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 14px;
+}
+
+.claim-meta {
+  margin: 4px 0 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.claim-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.claim-approve-btn,
+.claim-reject-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.claim-approve-btn {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.claim-approve-btn:hover:not(:disabled) {
+  background-color: #b9e2c3;
+}
+
+.claim-reject-btn {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+.claim-reject-btn:hover:not(:disabled) {
+  background-color: #f3b8bd;
+}
+
+.claim-approve-btn:disabled,
+.claim-reject-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .payroll-page {
+    padding: 15px 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .process-btn {
+    width: 100%;
+  }
+}

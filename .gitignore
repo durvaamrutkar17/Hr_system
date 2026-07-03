@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment variables (secrets - never commit)
+.env
+.env.local
+.env.*.local
+
+# Uploaded files (runtime user data, not source)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Production builds
+frontend/build/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/

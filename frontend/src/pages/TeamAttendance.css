@@ -1,0 +1,199 @@
+.team-attendance-page {
+  padding: 30px 40px;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 70px);
+}
+
+.page-title {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.section-title {
+  margin: 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.loading-text {
+  color: #888;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Picker */
+.picker-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px 25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 25px;
+}
+
+.picker-section .form-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+}
+
+.picker-section .form-group:first-child {
+  flex: 1;
+}
+
+.picker-section label {
+  margin-bottom: 8px;
+  color: #333;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.picker-section select {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  color: #333;
+}
+
+/* History */
+.history-section {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.history-summary {
+  display: flex;
+  gap: 20px;
+  color: #666;
+  font-size: 14px;
+}
+
+.history-summary strong {
+  color: #1b4d4d;
+  font-size: 16px;
+}
+
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attendance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border: 1px solid #eee;
+  border-left: 4px solid #1b4d4d;
+  border-radius: 6px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.attendance-entry:has(.session-breakdown) .attendance-row {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom: none;
+}
+
+.session-breakdown {
+  border: 1px solid #eee;
+  border-top: none;
+  border-left: 4px solid #d4af37;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  padding: 10px 20px;
+  background-color: #fdfbf3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.session-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.session-label {
+  font-weight: 600;
+  color: #333;
+  min-width: 70px;
+}
+
+.session-time {
+  color: #666;
+}
+
+.session-reason {
+  color: #888;
+  font-style: italic;
+}
+
+.date-column .date-label {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 15px;
+}
+
+.date-column .work-mode {
+  margin: 4px 0 0 0;
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.time-column p {
+  margin: 4px 0;
+  color: #666;
+  font-size: 13px;
+}
+
+.time-column .time-label {
+  color: #333;
+  font-weight: 500;
+}
+
+.hours-column .hours {
+  margin: 0;
+  font-weight: 700;
+  color: #1b4d4d;
+  font-size: 16px;
+}
+
+.no-records {
+  text-align: center;
+  padding: 50px 20px;
+  color: #999;
+}
+
+@media (max-width: 768px) {
+  .team-attendance-page {
+    padding: 15px 20px;
+  }
+
+  .picker-section {
+    flex-direction: column;
+  }
+}

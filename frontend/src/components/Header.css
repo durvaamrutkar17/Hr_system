@@ -1,0 +1,114 @@
+.header {
+  background-color: #1b4d4d;
+  color: white;
+  padding: 15px 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.menu-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .menu-toggle {
+    display: block;
+  }
+}
+
+.header-title h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.header-title p {
+  margin: 0;
+  font-size: 12px;
+  color: #d4af37;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: #d4af37;
+  color: #1b4d4d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.user-details {
+  text-align: right;
+}
+
+.user-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.user-role {
+  margin: 0;
+  font-size: 12px;
+  color: #d4af37;
+}
+
+.view-toggle {
+  display: flex;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  padding: 3px;
+  gap: 3px;
+}
+
+.toggle-btn {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn:hover:not(.active) {
+  color: white;
+}
+
+.toggle-btn.active {
+  background-color: #d4af37;
+  color: #1b4d4d;
+}

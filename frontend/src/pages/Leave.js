@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { leaveAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { isOnProbation, probationEndDate, computeLeavePayability } from '../utils/leavePolicy';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Leave.css';
 
 const Leave = () => {
@@ -8,6 +11,7 @@ const Leave = () => {
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { message, showToast } = useToast();
   const [formData, setFormData] = useState({
     leaveType: 'Casual',
     startDate: '',
@@ -47,15 +51,15 @@ const Leave = () => {
     e.preventDefault();
 
     if (!formData.startDate || !formData.endDate) {
-      alert('Please select both From and To dates');
+      showToast('error', 'Please select both From and To dates');
       return;
     }
     if (new Date(formData.endDate) < new Date(formData.startDate)) {
-      alert('To date cannot be before From date');
+      showToast('error', 'To date cannot be before From date');
       return;
     }
     if (!formData.reason.trim()) {
-      alert('Please enter a reason');
+      showToast('error', 'Please enter a reason');
       return;
     }
 
@@ -69,20 +73,54 @@ const Leave = () => {
         numberOfDays: calculateDays(formData.startDate, formData.endDate),
         reason: formData.reason.trim()
       });
-      alert('✅ Leave request sent to your reporting manager');
+      showToast('success', 'Leave request sent to your reporting manager');
       setFormData({ leaveType: 'Casual', startDate: '', endDate: '', reason: '' });
       fetchLeaves();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const onProbation = isOnProbation(user?.dateOfJoining);
+  const probationEnd = probationEndDate(user?.dateOfJoining);
+
+  const leavesByMonth = {};
+  leaves.forEach((l) => {
+    const d = new Date(l.startDate);
+    const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+    (leavesByMonth[key] = leavesByMonth[key] || []).push(l);
+  });
+
+  const payabilityById = {};
+  Object.entries(leavesByMonth).forEach(([key, monthLeaves]) => {
+    const [year, month] = key.split('-').map(Number);
+    const { breakdown } = computeLeavePayability(user?.dateOfJoining, monthLeaves, month, year);
+    breakdown.forEach(({ leave, paidDays, unpaidDays }) => {
+      payabilityById[leave._id] = { paidDays, unpaidDays };
+    });
+  });
+
   return (
     <div className="leave-page">
       <p className="eyebrow">Time Off</p>
       <h1 className="page-title">Leave</h1>
+
+      <Toast message={message} />
+
+      <div className={`employment-banner ${onProbation ? 'probation' : 'permanent'}`}>
+        {onProbation ? (
+          <span>
+            On probation until <strong>{probationEnd.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</strong> —
+            leave taken during probation is unpaid and marked absent.
+          </span>
+        ) : (
+          <span>
+            Permanent employee — up to <strong>2 paid leave days per month</strong>; any additional approved leave day in the same month is unpaid and marked absent.
+          </span>
+        )}
+      </div>
 
       <div className="leave-stats">
         <div className="stat-card">
@@ -159,21 +197,31 @@ const Leave = () => {
           <p className="loading-text">Loading...</p>
         ) : leaves.length > 0 ? (
           <div className="requests-list">
-            {leaves.map((leave) => (
-              <div key={leave._id} className="request-row">
-                <div className="request-main">
-                  <p className="request-type">{leave.leaveType} Leave</p>
-                  <p className="request-dates">
-                    {new Date(leave.startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' – '}
-                    {new Date(leave.endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' · '}{leave.numberOfDays} day{leave.numberOfDays !== 1 ? 's' : ''}
-                  </p>
-                  <p className="request-reason">{leave.reason}</p>
+            {leaves.map((leave) => {
+              const payability = payabilityById[leave._id];
+              return (
+                <div key={leave._id} className="request-row">
+                  <div className="request-main">
+                    <p className="request-type">{leave.leaveType} Leave</p>
+                    <p className="request-dates">
+                      {new Date(leave.startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' – '}
+                      {new Date(leave.endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' · '}{leave.numberOfDays} day{leave.numberOfDays !== 1 ? 's' : ''}
+                    </p>
+                    <p className="request-reason">{leave.reason}</p>
+                    {leave.status === 'approved' && payability && payability.unpaidDays > 0 && (
+                      <p className="request-unpaid-note">
+                        {payability.paidDays > 0
+                          ? `${payability.paidDays} day${payability.paidDays !== 1 ? 's' : ''} paid · ${payability.unpaidDays} day${payability.unpaidDays !== 1 ? 's' : ''} unpaid (marked absent)`
+                          : `${payability.unpaidDays} day${payability.unpaidDays !== 1 ? 's' : ''} unpaid (marked absent)`}
+                      </p>
+                    )}
+                  </div>
+                  <span className={`status-badge ${leave.status}`}>{leave.status}</span>
                 </div>
-                <span className={`status-badge ${leave.status}`}>{leave.status}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <p className="no-records">No leave requests yet.</p>

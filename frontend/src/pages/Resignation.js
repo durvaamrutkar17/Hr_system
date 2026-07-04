@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { resignationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Resignation.css';
 
 const STATUS_LABELS = {
@@ -18,6 +20,7 @@ const Resignation = () => {
   const [withdrawing, setWithdrawing] = useState(false);
   const [lastWorkingDay, setLastWorkingDay] = useState('');
   const [reason, setReason] = useState('');
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchResignations();
@@ -42,29 +45,29 @@ const Resignation = () => {
     e.preventDefault();
 
     if (!lastWorkingDay) {
-      alert('Please select a proposed last working day');
+      showToast('error', 'Please select a proposed last working day');
       return;
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     if (new Date(lastWorkingDay) < today) {
-      alert('Last working day cannot be in the past');
+      showToast('error', 'Last working day cannot be in the past');
       return;
     }
     if (!reason.trim()) {
-      alert('Please enter a reason');
+      showToast('error', 'Please enter a reason');
       return;
     }
 
     try {
       setSubmitting(true);
       await resignationAPI.createResignation({ lastWorkingDay, reason: reason.trim() });
-      alert('✅ Resignation submitted for review');
+      showToast('success', 'Resignation submitted for review');
       setLastWorkingDay('');
       setReason('');
       fetchResignations();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
     }
@@ -76,10 +79,10 @@ const Resignation = () => {
     try {
       setWithdrawing(true);
       await resignationAPI.withdrawResignation(activeResignation._id);
-      alert('Resignation withdrawn');
+      showToast('success', 'Resignation withdrawn');
       fetchResignations();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setWithdrawing(false);
     }
@@ -89,6 +92,8 @@ const Resignation = () => {
     <div className="resignation-page">
       <p className="eyebrow">Offboarding</p>
       <h1 className="page-title">Exit / Resignation</h1>
+
+      <Toast message={message} />
 
       {loading ? (
         <p className="loading-text">Loading...</p>

@@ -27,6 +27,8 @@ app.use('/api/attendance', require('./routes/attendanceRoutes'));
 app.use('/api/payslips', require('./routes/payslipRoutes'));
 app.use('/api/expenses', require('./routes/expenseRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
+app.use('/api/holidays', require('./routes/holidayRoutes'));
+app.use('/api/assets', require('./routes/assetRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/resignations', require('./routes/resignationRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));

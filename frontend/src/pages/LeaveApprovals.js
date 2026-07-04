@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { leaveAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './LeaveApprovals.css';
 
 const FILTERS = ['pending', 'approved', 'rejected', 'all'];
@@ -9,6 +11,7 @@ const LeaveApprovals = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [processingId, setProcessingId] = useState(null);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchLeaves();
@@ -32,9 +35,10 @@ const LeaveApprovals = () => {
     try {
       setProcessingId(id);
       await leaveAPI.updateLeave(id, { status });
+      showToast('success', `Leave request ${status}`);
       fetchLeaves();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setProcessingId(null);
     }
@@ -45,6 +49,8 @@ const LeaveApprovals = () => {
   return (
     <div className="leave-approvals-page">
       <h1 className="page-title">Leave Approvals</h1>
+
+      <Toast message={message} />
 
       <div className="filter-bar">
         {FILTERS.map((f) => (

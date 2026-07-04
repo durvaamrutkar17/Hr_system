@@ -116,7 +116,7 @@
   color: #c0392b;
 }
 
-/* Payslip history */
+/* Salary history table */
 .history-card {
   background: white;
   border-radius: 8px;
@@ -124,22 +124,63 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-.history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.table-wrapper {
+  overflow-x: auto;
 }
 
-.history-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 15px;
-  border: 1px solid #eee;
-  border-radius: 6px;
+.salary-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.salary-table thead th {
+  text-align: left;
+  padding: 12px 16px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #888;
+  border-bottom: 2px solid #eee;
+  white-space: nowrap;
+}
+
+.salary-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f0f0f0;
   font-size: 14px;
   color: #444;
-  gap: 12px;
+  white-space: nowrap;
+}
+
+.salary-table tbody tr:hover {
+  background-color: #fafafa;
+}
+
+.salary-table td.negative {
+  color: #c0392b;
+}
+
+.salary-table td.net-cell {
+  font-weight: 700;
+  color: #1b1b1b;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.status-badge.paid {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.processing {
+  background-color: #fff3cd;
+  color: #856404;
 }
 
 .history-download-btn {
@@ -152,6 +193,7 @@
   font-size: 12px;
   font-weight: 600;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .history-download-btn:hover {
@@ -159,13 +201,11 @@
   color: white;
 }
 
-.no-payslips {
-  background: white;
-  border-radius: 8px;
+.salary-table tbody td.no-records-cell {
   text-align: center;
-  padding: 50px 20px;
+  padding: 40px 20px;
   color: #999;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  white-space: normal;
 }
 
 @media (max-width: 768px) {
@@ -183,9 +223,5 @@
 
   .download-btn {
     width: 100%;
-  }
-
-  .history-row {
-    flex-wrap: wrap;
   }
 }

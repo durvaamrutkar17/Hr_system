@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { userAPI, payslipAPI, expenseAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Payroll.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -31,6 +33,7 @@ const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [claimActionId, setClaimActionId] = useState(null);
+  const { message, showToast } = useToast();
 
   const today = new Date();
   const selectedMonth = today.getMonth() + 1;
@@ -105,8 +108,9 @@ const Payroll = () => {
   const handleProcessPayroll = async () => {
     const missingBasic = employees.filter((emp) => !rows[emp._id]?.basic);
     if (missingBasic.length > 0) {
-      alert(
-        '❌ Set a Basic salary for: ' +
+      showToast(
+        'error',
+        'Set a Basic salary for: ' +
         missingBasic.map((e) => `${e.firstName} ${e.lastName}`).join(', ') +
         ' before processing payroll.'
       );
@@ -127,10 +131,10 @@ const Payroll = () => {
           deductions: { professionalTax: row.professionalTax, tds: row.tds, lopDays: row.lopDays }
         });
       }));
-      alert('✅ Payroll processed for ' + MONTH_NAMES[selectedMonth - 1]);
+      showToast('success', 'Payroll processed for ' + MONTH_NAMES[selectedMonth - 1]);
       fetchAll();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setProcessing(false);
     }
@@ -140,9 +144,10 @@ const Payroll = () => {
     try {
       setClaimActionId(id);
       await expenseAPI.updateExpense(id, { status });
+      showToast('success', `Claim ${status}`);
       fetchAll();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setClaimActionId(null);
     }
@@ -152,6 +157,8 @@ const Payroll = () => {
     <div className="payroll-page">
       <p className="eyebrow">Salary Run</p>
       <h1 className="page-title">Payroll — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}</h1>
+
+      <Toast message={message} />
 
       <div className="calculator-card">
         <h2 className="section-title">Salary calculator</h2>

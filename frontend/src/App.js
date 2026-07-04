@@ -12,6 +12,7 @@ import Salary from './pages/Salary';
 import Attendance from './pages/Attendance';
 import Reimbursement from './pages/Reimbursement';
 import Documents from './pages/Documents';
+import Holidays from './pages/Holidays';
 import Resignation from './pages/Resignation';
 import ManagerDashboard from './pages/ManagerDashboard';
 import TeamAttendance from './pages/TeamAttendance';
@@ -19,15 +20,8 @@ import LeaveApprovals from './pages/LeaveApprovals';
 import CorrectionApprovals from './pages/CorrectionApprovals';
 import Payroll from './pages/Payroll';
 import PostAnnouncements from './pages/PostAnnouncements';
+import AssetTracker from './pages/AssetTracker';
 import './App.css';
-
-// Placeholder pages
-const PlaceholderPage = ({ title }) => (
-  <div className="placeholder-page">
-    <h1>{title}</h1>
-    <p>This page is under construction. Features coming soon!</p>
-  </div>
-);
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -77,7 +71,7 @@ const AppContent = () => {
                 <Route path="/salary" element={<Salary />} />
                 <Route path="/attendance" element={<Attendance />} />
                 <Route path="/documents" element={<Documents />} />
-                <Route path="/holidays" element={<PlaceholderPage title="Holidays" />} />
+                <Route path="/holidays" element={<Holidays viewMode={effectiveViewMode} />} />
                 <Route path="/reimbursement" element={<Reimbursement />} />
                 <Route path="/exit" element={<Resignation />} />
                 <Route path="/team-attendance" element={isReviewer ? <TeamAttendance /> : <Navigate to="/dashboard" />} />
@@ -85,7 +79,7 @@ const AppContent = () => {
                 <Route path="/correction-approvals" element={isReviewer ? <CorrectionApprovals /> : <Navigate to="/dashboard" />} />
                 <Route path="/payroll" element={isReviewer ? <Payroll /> : <Navigate to="/dashboard" />} />
                 <Route path="/post-announcements" element={isReviewer ? <PostAnnouncements /> : <Navigate to="/dashboard" />} />
-                <Route path="/asset-tracker" element={isReviewer ? <PlaceholderPage title="Asset Tracker" /> : <Navigate to="/dashboard" />} />
+                <Route path="/asset-tracker" element={isReviewer ? <AssetTracker /> : <Navigate to="/dashboard" />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
             </main>

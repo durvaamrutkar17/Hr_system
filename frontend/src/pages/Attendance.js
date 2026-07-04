@@ -1,22 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceAPI } from '../services/api';
+import { attendanceAPI, leaveAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { computeLeavePayability } from '../utils/leavePolicy';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Attendance.css';
 
 const Attendance = () => {
   const { user } = useAuth();
   const [attendance, setAttendance] = useState([]);
   const [corrections, setCorrections] = useState([]);
+  const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [correctionDate, setCorrectionDate] = useState(new Date().toISOString().split('T')[0]);
   const [correctionReason, setCorrectionReason] = useState('');
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchAttendance();
     fetchCorrections();
+    fetchLeaves();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
@@ -45,10 +51,19 @@ const Attendance = () => {
     }
   };
 
+  const fetchLeaves = async () => {
+    try {
+      const response = await leaveAPI.getEmployeeLeaves(user._id);
+      setLeaves(response.data.leaves || []);
+    } catch (error) {
+      console.error('Error fetching leaves:', error);
+    }
+  };
+
   const handleCorrectionSubmit = async (e) => {
     e.preventDefault();
     if (!correctionReason.trim()) {
-      alert('Please enter a reason');
+      showToast('error', 'Please enter a reason');
       return;
     }
 
@@ -58,12 +73,12 @@ const Attendance = () => {
         date: correctionDate,
         reason: correctionReason
       });
-      alert('✅ Correction request submitted to manager');
+      showToast('success', 'Correction request submitted to manager');
       setCorrectionReason('');
       setCorrectionDate(new Date().toISOString().split('T')[0]);
       fetchCorrections();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setSubmittingCorrection(false);
     }
@@ -72,9 +87,36 @@ const Attendance = () => {
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const presentDays = attendance.filter((r) => r.checkInTime).length;
 
+  const { totalPaidDays: leaveCount, totalUnpaidDays: unpaidLeaveDays } = computeLeavePayability(
+    user?.dateOfJoining,
+    leaves,
+    selectedMonth,
+    selectedYear
+  );
+
+  const presentCount = attendance.filter((r) => (r.hoursWorked || 0) >= 5).length;
+  const absentCount = attendance.filter((r) => !r.checkInTime || (r.hoursWorked || 0) < 5).length + unpaidLeaveDays;
+
   return (
     <div className="attendance-page">
       <h1 className="page-title">My Attendance</h1>
+
+      <Toast message={message} />
+
+      <div className="attendance-stats">
+        <div className="stat-card">
+          <p className="stat-label">Present</p>
+          <h3 className="stat-value">{presentCount}</h3>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Absent</p>
+          <h3 className="stat-value">{absentCount}</h3>
+        </div>
+        <div className="stat-card">
+          <p className="stat-label">Leave</p>
+          <h3 className="stat-value">{leaveCount}</h3>
+        </div>
+      </div>
 
       <div className="attendance-content">
         {/* Correction Request Section */}
@@ -159,40 +201,68 @@ const Attendance = () => {
           {loading ? (
             <p className="loading-text">Loading attendance...</p>
           ) : attendance.length > 0 ? (
-            <div className="attendance-list">
-              {attendance.map((record) => (
-                <div key={record._id} className="attendance-entry">
-                  <div className="attendance-row">
-                    <div className="date-column">
-                      <p className="date-label">{new Date(record.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                      <p className="work-mode">{record.workMode}</p>
-                    </div>
-                    <div className="time-column">
-                      <p><span className="time-label">Check-in:</span> {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</p>
-                      <p><span className="time-label">Check-out:</span> {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</p>
-                    </div>
-                    <div className="hours-column">
-                      <p className="hours">{record.hoursWorked ? record.hoursWorked.toFixed(2) : 0} hrs</p>
-                    </div>
-                  </div>
+            <div className="table-wrapper">
+              <table className="attendance-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Working Hours</th>
+                    <th>Flex Hours</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attendance.map((record) => {
+                    const hours = record.hoursWorked || 0;
+                    const workingHours = Math.min(hours, 9);
+                    const flexHours = Math.max(hours - 9, 0);
+                    const status = !record.checkInTime
+                      ? { label: 'Absent', className: 'absent' }
+                      : hours >= 9
+                      ? { label: 'Present', className: 'present' }
+                      : hours >= 5
+                      ? { label: 'Half Day', className: 'half-day' }
+                      : { label: 'Absent', className: 'absent' };
 
-                  {record.sessions && record.sessions.length > 1 && (
-                    <div className="session-breakdown">
-                      {record.sessions.map((s, idx) => (
-                        <div key={idx} className="session-row">
-                          <span className="session-label">Session {idx + 1}</span>
-                          <span className="session-time">
-                            {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
-                            {' – '}
-                            {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
-                          </span>
-                          {s.reason && <span className="session-reason">{s.reason}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    return (
+                      <React.Fragment key={record._id}>
+                        <tr className="attendance-table-row">
+                          <td>
+                            <p className="date-label">{new Date(record.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                            <p className="work-mode">{record.workMode}</p>
+                          </td>
+                          <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
+                          <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
+                          <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
+                          <td>{workingHours.toFixed(2)} hrs</td>
+                          <td>{flexHours > 0 ? `${flexHours.toFixed(2)} hrs` : '-'}</td>
+                        </tr>
+                        {record.sessions && record.sessions.length > 1 && (
+                          <tr className="session-breakdown-row">
+                            <td colSpan={6}>
+                              <div className="session-breakdown">
+                                {record.sessions.map((s, idx) => (
+                                  <div key={idx} className="session-row">
+                                    <span className="session-label">Session {idx + 1}</span>
+                                    <span className="session-time">
+                                      {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                                      {' – '}
+                                      {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
+                                    </span>
+                                    {s.reason && <span className="session-reason">{s.reason}</span>}
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="no-records">

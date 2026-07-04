@@ -1,0 +1,181 @@
+.asset-tracker-page {
+  padding: 30px 40px;
+  background-color: #f5f5f5;
+  min-height: calc(100vh - 70px);
+}
+
+.eyebrow {
+  margin: 0;
+  color: #d4af37;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.page-title {
+  margin: 4px 0 20px 0;
+  color: #333;
+  font-size: 26px;
+}
+
+.section-title {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.asset-card {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+}
+
+/* Assign form */
+.assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.assign-form select,
+.assign-form input[type='text'] {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.assign-form select:focus,
+.assign-form input[type='text']:focus {
+  outline: none;
+  border-color: #1b4d4d;
+  box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);
+}
+
+.assign-btn {
+  padding: 14px 24px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  background-color: #1b4d4d;
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.assign-btn:hover:not(:disabled) {
+  background-color: #2d6b6b;
+}
+
+.assign-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Asset list */
+.asset-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.asset-row {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px 0;
+  border-bottom: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+
+.asset-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.asset-icon {
+  font-size: 20px;
+}
+
+.asset-main {
+  flex: 1;
+  min-width: 200px;
+}
+
+.asset-name {
+  margin: 0;
+  font-weight: 600;
+  color: #333;
+  font-size: 15px;
+}
+
+.asset-meta {
+  margin: 4px 0 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
+.status-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.status-badge.active {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-badge.returned {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.return-link {
+  background: none;
+  border: none;
+  color: #c0392b;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}
+
+.return-link:hover {
+  text-decoration: underline;
+}
+
+.loading-text {
+  color: #888;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.no-records {
+  color: #999;
+  text-align: center;
+  padding: 20px 0;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .asset-tracker-page {
+    padding: 15px 20px;
+  }
+
+  .page-title {
+    font-size: 20px;
+  }
+
+  .asset-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

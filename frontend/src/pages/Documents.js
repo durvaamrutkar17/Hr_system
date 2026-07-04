@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { documentAPI, FILE_BASE_URL } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Documents.css';
 
 const formatDate = (date) =>
@@ -13,6 +15,7 @@ const Documents = () => {
   const [docLabel, setDocLabel] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const { message, showToast } = useToast();
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -42,11 +45,11 @@ const Documents = () => {
 
   const handleUpload = async () => {
     if (!docLabel.trim()) {
-      alert('Please enter a document name (e.g. PAN card, Aadhaar)');
+      showToast('error', 'Please enter a document name (e.g. PAN card, Aadhaar)');
       return;
     }
     if (!selectedFile) {
-      alert('Please choose a file to upload');
+      showToast('error', 'Please choose a file to upload');
       return;
     }
 
@@ -58,13 +61,13 @@ const Documents = () => {
     try {
       setUploading(true);
       await documentAPI.uploadDocument(formData);
-      alert('✅ Document uploaded successfully');
+      showToast('success', 'Document uploaded successfully');
       setDocLabel('');
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
       fetchDocuments();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setUploading(false);
     }
@@ -75,9 +78,10 @@ const Documents = () => {
 
     try {
       await documentAPI.deleteDocument(doc._id);
+      showToast('success', 'Document removed');
       fetchDocuments();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     }
   };
 
@@ -117,6 +121,8 @@ const Documents = () => {
     <div className="documents-page">
       <p className="eyebrow">Records</p>
       <h1 className="page-title">Documents</h1>
+
+      <Toast message={message} />
 
       <div className="doc-card">
         <h2 className="section-title">Company letters</h2>

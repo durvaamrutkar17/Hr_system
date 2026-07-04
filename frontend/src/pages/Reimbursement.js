@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { expenseAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Reimbursement.css';
 
 const STATUS_LABELS = {
@@ -15,6 +17,7 @@ const Reimbursement = () => {
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const { message, showToast } = useToast();
   const [formData, setFormData] = useState({
     expenseType: 'Travel',
     amount: '',
@@ -48,11 +51,11 @@ const Reimbursement = () => {
     const amountNum = parseFloat(formData.amount);
 
     if (!amountNum || amountNum <= 0) {
-      alert('Please enter a valid amount');
+      showToast('error', 'Please enter a valid amount');
       return;
     }
     if (!formData.description.trim()) {
-      alert('Please describe what this claim was for');
+      showToast('error', 'Please describe what this claim was for');
       return;
     }
 
@@ -64,11 +67,11 @@ const Reimbursement = () => {
         description: formData.description.trim(),
         date: new Date().toISOString()
       });
-      alert('✅ Claim submitted for approval');
+      showToast('success', 'Claim submitted for approval');
       setFormData({ expenseType: 'Travel', amount: '', description: '' });
       fetchExpenses();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setSubmitting(false);
     }
@@ -78,6 +81,8 @@ const Reimbursement = () => {
     <div className="reimbursement-page">
       <p className="eyebrow">Claims</p>
       <h1 className="page-title">Reimbursement</h1>
+
+      <Toast message={message} />
 
       <div className="claim-card">
         <h2 className="section-title">Submit a claim</h2>

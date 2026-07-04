@@ -25,6 +25,32 @@
   font-size: 18px;
 }
 
+/* Employment status banner */
+.employment-banner {
+  padding: 12px 18px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.employment-banner.probation {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.employment-banner.permanent {
+  background-color: #eef5f5;
+  color: #1b4d4d;
+}
+
+.request-unpaid-note {
+  margin: 6px 0 0 0;
+  color: #c0392b;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 /* Leave balance stat cards */
 .leave-stats {
   display: grid;

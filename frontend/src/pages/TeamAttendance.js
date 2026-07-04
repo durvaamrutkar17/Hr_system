@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceAPI, userAPI } from '../services/api';
+import { attendanceAPI, userAPI, leaveAPI } from '../services/api';
+import { computeLeaveDayStatuses } from '../utils/leavePolicy';
 import './TeamAttendance.css';
 
 const TeamAttendance = () => {
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [attendance, setAttendance] = useState([]);
+  const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
@@ -15,7 +17,10 @@ const TeamAttendance = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedEmployeeId) fetchAttendance();
+    if (selectedEmployeeId) {
+      fetchAttendance();
+      fetchLeaves();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEmployeeId, selectedMonth, selectedYear]);
 
@@ -48,9 +53,27 @@ const TeamAttendance = () => {
     }
   };
 
+  const fetchLeaves = async () => {
+    try {
+      const response = await leaveAPI.getEmployeeLeaves(selectedEmployeeId);
+      setLeaves(response.data.leaves || []);
+    } catch (error) {
+      console.error('Error fetching leaves:', error);
+    }
+  };
+
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const presentDays = attendance.filter((r) => r.checkInTime).length;
   const selectedEmployee = employees.find((e) => e._id === selectedEmployeeId);
+
+  const attendanceDates = new Set(attendance.map((r) => new Date(r.date).toDateString()));
+  const leaveOnlyDays = computeLeaveDayStatuses(selectedEmployee?.dateOfJoining, leaves, selectedMonth, selectedYear)
+    .filter((d) => !attendanceDates.has(d.date.toDateString()));
+
+  const combinedRows = [
+    ...attendance.map((record) => ({ kind: 'attendance', date: new Date(record.date), record })),
+    ...leaveOnlyDays.map((day) => ({ kind: 'leave', date: day.date, day }))
+  ].sort((a, b) => b.date - a.date);
 
   return (
     <div className="team-attendance-page">
@@ -102,41 +125,93 @@ const TeamAttendance = () => {
 
         {loading ? (
           <p className="loading-text">Loading attendance...</p>
-        ) : attendance.length > 0 ? (
-          <div className="attendance-list">
-            {attendance.map((record) => (
-              <div key={record._id} className="attendance-entry">
-                <div className="attendance-row">
-                  <div className="date-column">
-                    <p className="date-label">{new Date(record.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
-                    <p className="work-mode">{record.workMode}</p>
-                  </div>
-                  <div className="time-column">
-                    <p><span className="time-label">Check-in:</span> {record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</p>
-                    <p><span className="time-label">Check-out:</span> {record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</p>
-                  </div>
-                  <div className="hours-column">
-                    <p className="hours">{record.hoursWorked ? record.hoursWorked.toFixed(2) : 0} hrs</p>
-                  </div>
-                </div>
+        ) : combinedRows.length > 0 ? (
+          <div className="table-wrapper">
+            <table className="attendance-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Employee</th>
+                  <th>Status</th>
+                  <th>Check-in</th>
+                  <th>Check-out</th>
+                  <th>Working Hours</th>
+                  <th>Flex Hours</th>
+                </tr>
+              </thead>
+              <tbody>
+                {combinedRows.map((row) => {
+                  const employeeName = selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : '-';
 
-                {record.sessions && record.sessions.length > 1 && (
-                  <div className="session-breakdown">
-                    {record.sessions.map((s, idx) => (
-                      <div key={idx} className="session-row">
-                        <span className="session-label">Session {idx + 1}</span>
-                        <span className="session-time">
-                          {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
-                          {' – '}
-                          {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
-                        </span>
-                        {s.reason && <span className="session-reason">{s.reason}</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+                  if (row.kind === 'leave') {
+                    const status = row.day.paid
+                      ? { label: 'Leave', className: 'leave' }
+                      : { label: 'Absent', className: 'absent' };
+                    return (
+                      <tr key={`leave-${row.day.leaveId}-${row.date.toISOString()}`} className="attendance-table-row">
+                        <td>
+                          <p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </td>
+                        <td>{employeeName}</td>
+                        <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                    );
+                  }
+
+                  const record = row.record;
+                  const hours = record.hoursWorked || 0;
+                  const workingHours = Math.min(hours, 9);
+                  const flexHours = Math.max(hours - 9, 0);
+                  const status = !record.checkInTime
+                    ? { label: 'Absent', className: 'absent' }
+                    : hours >= 9
+                    ? { label: 'Present', className: 'present' }
+                    : hours >= 5
+                    ? { label: 'Half Day', className: 'half-day' }
+                    : { label: 'Absent', className: 'absent' };
+
+                  return (
+                    <React.Fragment key={record._id}>
+                      <tr className="attendance-table-row">
+                        <td>
+                          <p className="date-label">{new Date(record.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          <p className="work-mode">{record.workMode}</p>
+                        </td>
+                        <td>{employeeName}</td>
+                        <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
+                        <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
+                        <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
+                        <td>{workingHours.toFixed(2)} hrs</td>
+                        <td>{flexHours > 0 ? `${flexHours.toFixed(2)} hrs` : '-'}</td>
+                      </tr>
+                      {record.sessions && record.sessions.length > 1 && (
+                        <tr className="session-breakdown-row">
+                          <td colSpan={7}>
+                            <div className="session-breakdown">
+                              {record.sessions.map((s, idx) => (
+                                <div key={idx} className="session-row">
+                                  <span className="session-label">Session {idx + 1}</span>
+                                  <span className="session-time">
+                                    {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                                    {' – '}
+                                    {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
+                                  </span>
+                                  {s.reason && <span className="session-reason">{s.reason}</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <div className="no-records">

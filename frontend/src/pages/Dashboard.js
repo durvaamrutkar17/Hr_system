@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { attendanceAPI, leaveAPI, announcementAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './Dashboard.css';
 
 const formatTime = (date) =>
@@ -17,6 +19,7 @@ const Dashboard = () => {
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [checkInReason, setCheckInReason] = useState('');
   const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
+  const { message, showToast } = useToast();
 
   // True once the employee has already checked out at least once today (e.g. took a half day) —
   // checking in again for a later session (like working at night) requires a reason.
@@ -88,7 +91,7 @@ const Dashboard = () => {
 
   const handleCheckIn = async () => {
     if (needsReasonToCheckInAgain && !checkInReason.trim()) {
-      alert('Please enter a reason for checking in again');
+      showToast('error', 'Please enter a reason for checking in again');
       return;
     }
 
@@ -109,7 +112,7 @@ const Dashboard = () => {
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.message;
-      alert('❌ Error: ' + errorMsg);
+      showToast('error', errorMsg);
     } finally {
       setSubmittingCheckIn(false);
     }
@@ -124,12 +127,14 @@ const Dashboard = () => {
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.message;
-      alert('❌ Error: ' + errorMsg);
+      showToast('error', errorMsg);
     }
   };
 
   return (
     <div className="dashboard">
+      <Toast message={message} />
+
       <div className="welcome-section">
         <h1>Welcome back {user?.firstName}!</h1>
 

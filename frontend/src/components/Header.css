@@ -8,7 +8,7 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 1001;
 }
 
 .header-left {
@@ -111,4 +111,41 @@
 .toggle-btn.active {
   background-color: #d4af37;
   color: #1b4d4d;
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 12px 15px;
+  }
+
+  .header-left {
+    gap: 12px;
+  }
+
+  .header-title h2 {
+    font-size: 16px;
+  }
+
+  .header-title p {
+    font-size: 10px;
+  }
+
+  .header-right {
+    gap: 10px;
+  }
+
+  .user-details {
+    display: none;
+  }
+
+  .toggle-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 400px) {
+  .header-title {
+    display: none;
+  }
 }

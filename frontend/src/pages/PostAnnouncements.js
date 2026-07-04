@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { announcementAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './PostAnnouncements.css';
 
 const PostAnnouncements = () => {
@@ -8,6 +10,7 @@ const PostAnnouncements = () => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [posting, setPosting] = useState(false);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchAnnouncements();
@@ -29,11 +32,11 @@ const PostAnnouncements = () => {
     e.preventDefault();
 
     if (!title.trim()) {
-      alert('Please enter a title');
+      showToast('error', 'Please enter a title');
       return;
     }
     if (!content.trim()) {
-      alert('Please enter a message');
+      showToast('error', 'Please enter a message');
       return;
     }
 
@@ -46,12 +49,12 @@ const PostAnnouncements = () => {
         visibility: 'all',
         priority: 'medium'
       });
-      alert('✅ Announcement posted to all staff');
+      showToast('success', 'Announcement posted to all staff');
       setTitle('');
       setContent('');
       fetchAnnouncements();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setPosting(false);
     }
@@ -61,6 +64,8 @@ const PostAnnouncements = () => {
     <div className="post-announcements-page">
       <p className="eyebrow">Broadcast</p>
       <h1 className="page-title">Post Announcement</h1>
+
+      <Toast message={message} />
 
       <div className="compose-card">
         <form onSubmit={handlePost} className="compose-form">

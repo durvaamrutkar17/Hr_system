@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const SERVER_URL = 'http://localhost:5000';
+const SERVER_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 const API_URL = `${SERVER_URL}/api`;
 
 export const FILE_BASE_URL = SERVER_URL;
@@ -98,6 +98,21 @@ export const announcementAPI = {
   createAnnouncement: (announcementData) => api.post('/announcements', announcementData),
   updateAnnouncement: (id, updateData) => api.put(`/announcements/${id}`, updateData),
   deleteAnnouncement: (id) => api.delete(`/announcements/${id}`)
+};
+
+// Holiday API calls
+export const holidayAPI = {
+  getHolidays: () => api.get('/holidays'),
+  createHoliday: (holidayData) => api.post('/holidays', holidayData),
+  updateHoliday: (id, updateData) => api.put(`/holidays/${id}`, updateData),
+  deleteHoliday: (id) => api.delete(`/holidays/${id}`)
+};
+
+// Asset API calls
+export const assetAPI = {
+  getAssets: () => api.get('/assets'),
+  createAsset: (assetData) => api.post('/assets', assetData),
+  updateAsset: (id, updateData) => api.put(`/assets/${id}`, updateData)
 };
 
 export default api;

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { attendanceAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './CorrectionApprovals.css';
 
 const FILTERS = ['pending', 'approved', 'rejected', 'all'];
@@ -9,6 +11,7 @@ const CorrectionApprovals = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [processingId, setProcessingId] = useState(null);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchCorrections();
@@ -32,9 +35,10 @@ const CorrectionApprovals = () => {
     try {
       setProcessingId(id);
       await attendanceAPI.updateCorrectionRequest(id, { status });
+      showToast('success', `Correction ${status}`);
       fetchCorrections();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setProcessingId(null);
     }
@@ -45,6 +49,8 @@ const CorrectionApprovals = () => {
   return (
     <div className="correction-approvals-page">
       <h1 className="page-title">Correction Approvals</h1>
+
+      <Toast message={message} />
 
       <div className="filter-bar">
         {FILTERS.map((f) => (

@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userAPI, attendanceAPI, leaveAPI, expenseAPI } from '../services/api';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './ManagerDashboard.css';
 
 const emptyEmployeeForm = {
@@ -44,6 +46,7 @@ const ManagerDashboard = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employeeAttendance, setEmployeeAttendance] = useState([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchAll();
@@ -122,19 +125,19 @@ const ManagerDashboard = () => {
     e.preventDefault();
 
     if (employeeForm.password.length < 6) {
-      alert('Password must be at least 6 characters');
+      showToast('error', 'Password must be at least 6 characters');
       return;
     }
 
     try {
       setAddingEmployee(true);
       await userAPI.createEmployee(employeeForm);
-      alert('✅ Employee added');
+      showToast('success', 'Employee added');
       setShowAddModal(false);
       setEmployeeForm(emptyEmployeeForm);
       fetchAll();
     } catch (error) {
-      alert('❌ Error: ' + (error.response?.data?.message || error.message));
+      showToast('error', error.response?.data?.message || error.message);
     } finally {
       setAddingEmployee(false);
     }
@@ -143,6 +146,8 @@ const ManagerDashboard = () => {
   return (
     <div className="manager-dashboard-page">
       <h1 className="page-title">Team Dashboard</h1>
+
+      <Toast message={message} />
 
       {loading ? (
         <p className="loading-text">Loading team overview...</p>

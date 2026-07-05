@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { userAPI, attendanceAPI, leaveAPI, expenseAPI } from '../services/api';
+import { userAPI, attendanceAPI, leaveAPI, expenseAPI, resignationAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import './ManagerDashboard.css';
@@ -39,6 +39,7 @@ const ManagerDashboard = () => {
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [pendingCorrections, setPendingCorrections] = useState(0);
   const [pendingClaims, setPendingClaims] = useState(0);
+  const [pendingResignations, setPendingResignations] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [employeeForm, setEmployeeForm] = useState(emptyEmployeeForm);
@@ -59,12 +60,13 @@ const ManagerDashboard = () => {
       const month = today.getMonth() + 1;
       const year = today.getFullYear();
 
-      const [usersRes, attendanceRes, leavesRes, correctionsRes, expensesRes] = await Promise.all([
+      const [usersRes, attendanceRes, leavesRes, correctionsRes, expensesRes, resignationsRes] = await Promise.all([
         userAPI.getUsers(),
         attendanceAPI.getAttendance({ month, year }),
         leaveAPI.getLeaves(),
         attendanceAPI.getCorrectionRequests({}),
-        expenseAPI.getExpenses()
+        expenseAPI.getExpenses(),
+        resignationAPI.getResignations({})
       ]);
 
       setEmployees(usersRes.data.users || []);
@@ -83,6 +85,9 @@ const ManagerDashboard = () => {
 
       const expenses = expensesRes.data.expenses || [];
       setPendingClaims(expenses.filter((e) => e.status === 'submitted').length);
+
+      const resignations = resignationsRes.data.resignations || [];
+      setPendingResignations(resignations.filter((r) => r.status === 'pending').length);
     } catch (error) {
       console.error('Error loading team dashboard:', error);
     } finally {
@@ -173,6 +178,11 @@ const ManagerDashboard = () => {
               <div className="stat-icon">💰</div>
               <h3>{pendingClaims}</h3>
               <p>Claims pending</p>
+            </div>
+            <div className="stat-card" onClick={() => navigate('/resignation-approvals')}>
+              <div className="stat-icon">🚪</div>
+              <h3>{pendingResignations}</h3>
+              <p>Resignations pending</p>
             </div>
           </div>
 

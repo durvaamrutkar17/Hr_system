@@ -21,6 +21,7 @@ import CorrectionApprovals from './pages/CorrectionApprovals';
 import Payroll from './pages/Payroll';
 import PostAnnouncements from './pages/PostAnnouncements';
 import AssetTracker from './pages/AssetTracker';
+import ResignationApprovals from './pages/ResignationApprovals';
 import './App.css';
 
 const PrivateRoute = ({ children }) => {
@@ -80,6 +81,7 @@ const AppContent = () => {
                 <Route path="/payroll" element={isReviewer ? <Payroll /> : <Navigate to="/dashboard" />} />
                 <Route path="/post-announcements" element={isReviewer ? <PostAnnouncements /> : <Navigate to="/dashboard" />} />
                 <Route path="/asset-tracker" element={isReviewer ? <AssetTracker /> : <Navigate to="/dashboard" />} />
+                <Route path="/resignation-approvals" element={isReviewer ? <ResignationApprovals /> : <Navigate to="/dashboard" />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
             </main>

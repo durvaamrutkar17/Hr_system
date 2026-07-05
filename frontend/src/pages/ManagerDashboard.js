@@ -169,7 +169,7 @@ const ManagerDashboard = () => {
               <h3>{pendingCorrections}</h3>
               <p>Corrections</p>
             </div>
-            <div className="stat-card">
+            <div className="stat-card" onClick={() => navigate('/payroll')}>
               <div className="stat-icon">💰</div>
               <h3>{pendingClaims}</h3>
               <p>Claims pending</p>

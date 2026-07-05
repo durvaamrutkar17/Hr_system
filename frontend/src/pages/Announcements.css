@@ -39,23 +39,10 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-.announcement-badge {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-    color: white;
-    padding: 6px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: capitalize;
-}
-
 .announcement-card h2 {
     margin: 0 0 15px 0;
     color: #333;
     font-size: 18px;
-    padding-right: 80px;
 }
 
 .announcement-content {
@@ -67,18 +54,9 @@
 
 .announcement-meta {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     font-size: 12px;
     color: #999;
-}
-
-.category {
-    background-color: #f0f0f0;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: 500;
-    color: #555;
 }
 
 .date {

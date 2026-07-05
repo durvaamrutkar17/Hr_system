@@ -21,7 +21,8 @@ const Reimbursement = () => {
   const [formData, setFormData] = useState({
     expenseType: 'Travel',
     amount: '',
-    description: ''
+    description: '',
+    date: new Date().toISOString().slice(0, 10)
   });
 
   useEffect(() => {
@@ -58,6 +59,10 @@ const Reimbursement = () => {
       showToast('error', 'Please describe what this claim was for');
       return;
     }
+    if (!formData.date) {
+      showToast('error', 'Please select a date');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -65,10 +70,10 @@ const Reimbursement = () => {
         expenseType: formData.expenseType,
         amount: amountNum,
         description: formData.description.trim(),
-        date: new Date().toISOString()
+        date: formData.date
       });
       showToast('success', 'Claim submitted for approval');
-      setFormData({ expenseType: 'Travel', amount: '', description: '' });
+      setFormData({ expenseType: 'Travel', amount: '', description: '', date: new Date().toISOString().slice(0, 10) });
       fetchExpenses();
     } catch (error) {
       showToast('error', error.response?.data?.message || error.message);
@@ -106,6 +111,17 @@ const Reimbursement = () => {
                 min="0"
                 step="0.01"
                 value={formData.amount}
+                onChange={handleChange}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Date</label>
+              <input
+                type="date"
+                name="date"
+                max={new Date().toISOString().slice(0, 10)}
+                value={formData.date}
                 onChange={handleChange}
                 required
               />

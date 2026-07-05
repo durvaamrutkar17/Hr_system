@@ -33,16 +33,9 @@ const Announcements = () => {
         ) : announcements.length > 0 ? (
           announcements.map((announcement) => (
             <div key={announcement._id} className="announcement-card">
-              <div className="announcement-badge" style={{
-                backgroundColor: announcement.priority === 'high' ? '#e74c3c' : 
-                                announcement.priority === 'medium' ? '#f39c12' : '#3498db'
-              }}>
-                {announcement.priority}
-              </div>
               <h2>{announcement.title}</h2>
               <p className="announcement-content">{announcement.content}</p>
               <div className="announcement-meta">
-                <span className="category">{announcement.category}</span>
                 <span className="date">
                   {new Date(announcement.createdAt).toLocaleDateString('en-US', {
                     year: 'numeric',

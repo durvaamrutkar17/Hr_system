@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { userAPI, payslipAPI, expenseAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './Payroll.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -39,6 +40,7 @@ const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [claimActionId, setClaimActionId] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
   const { message, showToast } = useToast();
 
   const today = new Date();
@@ -111,7 +113,7 @@ const Payroll = () => {
     }));
   };
 
-  const handleProcessPayroll = async () => {
+  const handleProcessPayroll = () => {
     const missingBasic = employees.filter((emp) => !rows[emp._id]?.basic);
     if (missingBasic.length > 0) {
       showToast(
@@ -123,8 +125,15 @@ const Payroll = () => {
       return;
     }
 
-    if (!window.confirm(`Process payroll for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}?`)) return;
+    setConfirmState({
+      message: `Process payroll for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}?`,
+      confirmLabel: 'Process',
+      onConfirm: performProcessPayroll
+    });
+  };
 
+  const performProcessPayroll = async () => {
+    setConfirmState(null);
     try {
       setProcessing(true);
       await Promise.all(employees.map((emp) => {
@@ -323,6 +332,14 @@ const Payroll = () => {
           <p className="no-records">No pending claims</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

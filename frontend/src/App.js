@@ -16,6 +16,7 @@ import MyAssets from './pages/MyAssets';
 import Holidays from './pages/Holidays';
 import Resignation from './pages/Resignation';
 import ManagerDashboard from './pages/ManagerDashboard';
+import Employees from './pages/Employees';
 import TeamAttendance from './pages/TeamAttendance';
 import LeaveApprovals from './pages/LeaveApprovals';
 import CorrectionApprovals from './pages/CorrectionApprovals';
@@ -73,6 +74,7 @@ const AppContent = () => {
             <main className="main-content">
               <Routes>
                 <Route path="/dashboard" element={effectiveViewMode === 'mgr' ? <ManagerDashboard /> : <Dashboard />} />
+                <Route path="/employees" element={isReviewer ? <Employees /> : <Navigate to="/dashboard" />} />
                 <Route path="/leave" element={<Leave />} />
                 <Route path="/announcements" element={<Announcements />} />
                 <Route path="/salary" element={<Salary />} />

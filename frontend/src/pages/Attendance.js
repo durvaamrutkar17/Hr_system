@@ -62,6 +62,15 @@ const Attendance = () => {
     }
   };
 
+  // Combines the picked date + "HH:MM" into a real Date in the browser's own timezone
+  // (the employee's actual local time) rather than leaving the server to guess it.
+  const combineLocalDateTime = (dateStr, timeStr) => {
+    if (!timeStr) return undefined;
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return new Date(year, month - 1, day, hours, minutes, 0, 0).toISOString();
+  };
+
   const handleCorrectionSubmit = async (e) => {
     e.preventDefault();
     if (!correctionReason.trim()) {
@@ -78,8 +87,8 @@ const Attendance = () => {
       await attendanceAPI.requestCorrection({
         date: correctionDate,
         reason: correctionReason,
-        checkInTime: correctionCheckIn || undefined,
-        checkOutTime: correctionCheckOut || undefined
+        checkInTime: combineLocalDateTime(correctionDate, correctionCheckIn),
+        checkOutTime: combineLocalDateTime(correctionDate, correctionCheckOut)
       });
       showToast('success', 'Correction request submitted to manager');
       setCorrectionReason('');
@@ -313,6 +322,7 @@ const Attendance = () => {
                                 {record.sessions.map((s, idx) => (
                                   <div key={idx} className="session-row">
                                     <span className="session-label">Session {idx + 1}</span>
+                                    {s.workMode && <span className="session-mode">{s.workMode}</span>}
                                     <span className="session-time">
                                       {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
                                       {' – '}

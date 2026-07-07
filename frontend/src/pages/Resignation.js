@@ -3,6 +3,7 @@ import { resignationAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './Resignation.css';
 
 const STATUS_LABELS = {
@@ -20,6 +21,7 @@ const Resignation = () => {
   const [withdrawing, setWithdrawing] = useState(false);
   const [lastWorkingDay, setLastWorkingDay] = useState('');
   const [reason, setReason] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { message, showToast } = useToast();
 
   useEffect(() => {
@@ -73,9 +75,10 @@ const Resignation = () => {
     }
   };
 
-  const handleWithdraw = async () => {
-    if (!window.confirm('Withdraw your resignation request?')) return;
+  const handleWithdraw = () => setConfirmOpen(true);
 
+  const performWithdraw = async () => {
+    setConfirmOpen(false);
     try {
       setWithdrawing(true);
       await resignationAPI.withdrawResignation(activeResignation._id);
@@ -177,6 +180,14 @@ const Resignation = () => {
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        message="Withdraw your resignation request?"
+        confirmLabel="Withdraw"
+        onConfirm={performWithdraw}
+        onCancel={() => setConfirmOpen(false)}
+      />
     </div>
   );
 };

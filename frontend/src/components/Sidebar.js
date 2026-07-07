@@ -1,6 +1,6 @@
 import React from 'react';
 import './Sidebar.css';
-import { FiLogOut, FiClock, FiSun, FiUsers, FiCheckCircle, FiClipboard, FiDollarSign, FiRadio, FiMonitor, FiUserX } from 'react-icons/fi';
+import { FiLogOut, FiClock, FiSun, FiUsers, FiUserPlus, FiCheckCircle, FiClipboard, FiDollarSign, FiRadio, FiMonitor, FiUserX } from 'react-icons/fi';
 import { MdDashboard } from 'react-icons/md';
 import { AiOutlineCalendar, AiOutlineFile, AiOutlineDollar } from 'react-icons/ai';
 import { BiNote } from 'react-icons/bi';
@@ -22,6 +22,7 @@ const employeeMenuItems = [
 
 const managerMenuItems = [
   { icon: <MdDashboard />, label: 'Dashboard', path: '/dashboard' },
+  { icon: <FiUserPlus />, label: 'Employees', path: '/employees' },
   { icon: <FiUsers />, label: 'Team Attendance', path: '/team-attendance' },
   { icon: <FiCheckCircle />, label: 'Leave Approvals', path: '/leave-approvals' },
   { icon: <FiClipboard />, label: 'Correction Approvals', path: '/correction-approvals' },

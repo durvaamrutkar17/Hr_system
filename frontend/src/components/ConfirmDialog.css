@@ -1,0 +1,33 @@
+.confirm-dialog-card {
+  background: white;
+  border-radius: 8px;
+  padding: 28px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  animation: confirmDialogPopIn 0.15s ease-out;
+}
+
+@keyframes confirmDialogPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.confirm-dialog-message {
+  margin: 0 0 22px 0;
+  color: #333;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}

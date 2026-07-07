@@ -51,13 +51,31 @@
   font-size: 14px;
 }
 
-.picker-section select {
+.picker-section select,
+.picker-section input[type='date'] {
   padding: 10px 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
   background: white;
   color: #333;
+  font-family: inherit;
+}
+
+.clear-date-btn {
+  margin-top: 6px;
+  align-self: flex-start;
+  background: none;
+  border: none;
+  color: #b3401f;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.clear-date-btn:hover {
+  text-decoration: underline;
 }
 
 /* History */
@@ -201,6 +219,16 @@
 
 .session-time {
   color: #666;
+}
+
+.session-mode {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background-color: #fdf3d9;
+  color: #d4af37;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .session-reason {

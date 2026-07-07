@@ -97,6 +97,28 @@
   background-color: #2d6b6b;
 }
 
+.team-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.team-search-input {
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 13px;
+  font-family: inherit;
+  width: 220px;
+}
+
+.team-search-input:focus {
+  outline: none;
+  border-color: #1b4d4d;
+  box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);
+}
+
 .team-list {
   display: flex;
   flex-direction: column;
@@ -177,6 +199,12 @@
 .team-status.checked-out {
   background-color: #cce5ff;
   color: #004085;
+}
+
+.team-added-date {
+  color: #888;
+  font-size: 12px;
+  white-space: nowrap;
 }
 
 /* Add Employee modal */
@@ -392,6 +420,118 @@
   font-weight: 600;
 }
 
+.detail-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.detail-section-header .detail-section-title {
+  margin: 0;
+}
+
+.add-field-btn {
+  background: none;
+  border: none;
+  color: #b3401f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}
+
+.add-field-btn:hover {
+  text-decoration: underline;
+}
+
+.add-field-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
+  border: 1px solid #1b4d4d;
+  border-radius: 24px;
+  padding: 4px 6px 4px 14px;
+  box-shadow: 0 4px 14px rgba(27, 77, 77, 0.18);
+  animation: addFieldPopIn 0.15s ease-out;
+}
+
+@keyframes addFieldPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.add-field-input {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  font-family: inherit;
+  width: 140px;
+  color: #333;
+}
+
+.add-field-confirm-btn,
+.add-field-cancel-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.add-field-confirm-btn {
+  background-color: #1b4d4d;
+  color: white;
+}
+
+.add-field-confirm-btn:hover {
+  background-color: #2d6b6b;
+}
+
+.add-field-cancel-btn {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.add-field-cancel-btn:hover {
+  background-color: #e2e2e2;
+}
+
+.custom-fields-grid {
+  margin-top: 14px;
+}
+
+.custom-field-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.custom-field-input:focus {
+  outline: none;
+  border-color: #1b4d4d;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -480,5 +620,14 @@
 
   .role-badge {
     margin-left: 0;
+  }
+
+  .team-header-actions {
+    width: 100%;
+  }
+
+  .team-search-input {
+    flex: 1;
+    width: auto;
   }
 }

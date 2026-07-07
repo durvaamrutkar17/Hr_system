@@ -6,7 +6,7 @@ const User = require('../models/User');
 exports.getUsers = async (req, res) => {
   try {
     const users = await User.find({ status: 'active' })
-      .select('firstName lastName email phone designation department role dateOfJoining workMode casualLeaveBalance sickLeaveBalance earnedLeaveBalance salaryStructure')
+      .select('firstName lastName email phone designation department role dateOfJoining workMode casualLeaveBalance sickLeaveBalance earnedLeaveBalance salaryStructure createdAt')
       .sort({ firstName: 1 });
 
     res.status(200).json({ success: true, users });
@@ -20,7 +20,7 @@ exports.getUsers = async (req, res) => {
 // @access  Private/Manager/Admin
 exports.createEmployee = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, designation, department, dateOfJoining, role, salaryStructure } = req.body;
+    const { firstName, lastName, email, password, phone, designation, department, dateOfJoining, role, workMode, salaryStructure } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -39,6 +39,7 @@ exports.createEmployee = async (req, res) => {
       department,
       dateOfJoining,
       role: role === 'manager' ? 'manager' : 'employee',
+      workMode: ['WFO', 'WFH', 'Hybrid'].includes(workMode) ? workMode : 'WFO',
       salaryStructure: {
         basic: toNonNegative(salaryStructure?.basic),
         hra: toNonNegative(salaryStructure?.hra),

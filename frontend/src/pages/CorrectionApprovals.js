@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { attendanceAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './CorrectionApprovals.css';
 
 const FILTERS = ['pending', 'approved', 'rejected', 'all'];
@@ -11,6 +12,7 @@ const CorrectionApprovals = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [processingId, setProcessingId] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
   const { message, showToast } = useToast();
 
   useEffect(() => {
@@ -29,9 +31,16 @@ const CorrectionApprovals = () => {
     }
   };
 
-  const handleDecision = async (id, status) => {
-    if (!window.confirm(`${status === 'approved' ? 'Approve' : 'Reject'} this correction request?`)) return;
+  const handleDecision = (id, status) => {
+    setConfirmState({
+      message: `${status === 'approved' ? 'Approve' : 'Reject'} this correction request?`,
+      confirmLabel: status === 'approved' ? 'Approve' : 'Reject',
+      onConfirm: () => performDecision(id, status)
+    });
+  };
 
+  const performDecision = async (id, status) => {
+    setConfirmState(null);
     try {
       setProcessingId(id);
       await attendanceAPI.updateCorrectionRequest(id, { status });
@@ -109,6 +118,14 @@ const CorrectionApprovals = () => {
           <p className="no-records">No {filter !== 'all' ? filter : ''} correction requests</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

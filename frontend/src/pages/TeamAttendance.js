@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { attendanceAPI, userAPI, leaveAPI } from '../services/api';
 import { buildMonthAttendanceRows, getDayStatus } from '../utils/attendanceCalendar';
 import './TeamAttendance.css';
 
 const TeamAttendance = () => {
+  const location = useLocation();
   const [employees, setEmployees] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [attendance, setAttendance] = useState([]);
@@ -11,9 +13,11 @@ const TeamAttendance = () => {
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState('');
 
   useEffect(() => {
     fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -29,8 +33,15 @@ const TeamAttendance = () => {
       const response = await userAPI.getUsers();
       const list = response.data.users || [];
       setEmployees(list);
-      if (list.length > 0) setSelectedEmployeeId(list[0]._id);
-      else setLoading(false);
+
+      const requestedId = new URLSearchParams(location.search).get('employeeId');
+      if (requestedId && list.some((emp) => emp._id === requestedId)) {
+        setSelectedEmployeeId(requestedId);
+      } else if (list.length > 0) {
+        setSelectedEmployeeId(list[0]._id);
+      } else {
+        setLoading(false);
+      }
     } catch (error) {
       console.error('Error fetching employees:', error);
       setLoading(false);
@@ -38,6 +49,15 @@ const TeamAttendance = () => {
   };
 
   const isAllSelected = selectedEmployeeId === 'all';
+
+  const handleDateChange = (value) => {
+    setSelectedDate(value);
+    if (value) {
+      const [y, m] = value.split('-').map(Number);
+      setSelectedMonth(m);
+      setSelectedYear(y);
+    }
+  };
 
   const fetchAttendance = async () => {
     try {
@@ -91,6 +111,13 @@ const TeamAttendance = () => {
     }).map((row) => ({ ...row, employee: emp }))
   ).sort((a, b) => b.date - a.date);
 
+  const displayedRows = selectedDate
+    ? combinedRows.filter((row) => {
+        const [y, m, d] = selectedDate.split('-').map(Number);
+        return row.date.getFullYear() === y && row.date.getMonth() + 1 === m && row.date.getDate() === d;
+      })
+    : combinedRows;
+
   return (
     <div className="team-attendance-page">
       <h1 className="page-title">Team Attendance</h1>
@@ -125,6 +152,15 @@ const TeamAttendance = () => {
             ))}
           </select>
         </div>
+        <div className="form-group">
+          <label>Date</label>
+          <input type="date" value={selectedDate} onChange={(e) => handleDateChange(e.target.value)} />
+          {selectedDate && (
+            <button type="button" className="clear-date-btn" onClick={() => setSelectedDate('')}>
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="history-section">
@@ -146,7 +182,7 @@ const TeamAttendance = () => {
 
         {loading ? (
           <p className="loading-text">Loading attendance...</p>
-        ) : combinedRows.length > 0 ? (
+        ) : displayedRows.length > 0 ? (
           <div className="table-wrapper">
             <table className="attendance-table">
               <thead>
@@ -161,7 +197,7 @@ const TeamAttendance = () => {
                 </tr>
               </thead>
               <tbody>
-                {combinedRows.map((row) => {
+                {displayedRows.map((row) => {
                   const employeeName = row.employee ? `${row.employee.firstName} ${row.employee.lastName}` : '-';
 
                   if (row.kind === 'holiday') {
@@ -238,6 +274,7 @@ const TeamAttendance = () => {
                               {record.sessions.map((s, idx) => (
                                 <div key={idx} className="session-row">
                                   <span className="session-label">Session {idx + 1}</span>
+                                  {s.workMode && <span className="session-mode">{s.workMode}</span>}
                                   <span className="session-time">
                                     {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
                                     {' – '}
@@ -258,7 +295,7 @@ const TeamAttendance = () => {
           </div>
         ) : (
           <div className="no-records">
-            <p>No attendance records for this month</p>
+            <p>No attendance records for {selectedDate ? 'this date' : 'this month'}</p>
           </div>
         )}
       </div>

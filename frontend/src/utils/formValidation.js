@@ -1,5 +1,5 @@
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const PHONE_REGEX = /^[6-9]\d{9}$/;
+export const PHONE_REGEX = /^\d{10}$/;
 export const NAME_REGEX = /^[A-Za-z][A-Za-z\s'-]{1,49}$/;
 
 // Validates the shared fields used by the Register and Add Employee forms.

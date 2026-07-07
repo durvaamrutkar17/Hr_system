@@ -21,7 +21,8 @@ exports.checkIn = async (req, res) => {
       if (existingAttendance.sessions.length === 0 && existingAttendance.checkInTime) {
         existingAttendance.sessions.push({
           checkInTime: existingAttendance.checkInTime,
-          checkOutTime: existingAttendance.checkOutTime
+          checkOutTime: existingAttendance.checkOutTime,
+          workMode: existingAttendance.workMode
         });
       }
 
@@ -38,8 +39,11 @@ exports.checkIn = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Please provide a reason for checking in again today' });
       }
 
-      existingAttendance.sessions.push({ checkInTime: new Date(), reason: reason.trim() });
+      existingAttendance.sessions.push({ checkInTime: new Date(), reason: reason.trim(), workMode });
       existingAttendance.checkOutTime = undefined;
+      // The day-level workMode reflects the most recently started session, since each
+      // check-in can use a different mode (e.g. WFO in the morning, WFH that night)
+      if (workMode) existingAttendance.workMode = workMode;
       await existingAttendance.save();
 
       return res.status(201).json({ success: true, attendance: existingAttendance, message: 'Checked in again' });
@@ -52,7 +56,7 @@ exports.checkIn = async (req, res) => {
       checkInTime: now,
       workMode,
       status: 'present',
-      sessions: [{ checkInTime: now }]
+      sessions: [{ checkInTime: now, workMode }]
     });
 
     res.status(201).json({ success: true, attendance });
@@ -98,7 +102,7 @@ exports.checkOut = async (req, res) => {
     attendance.checkOutTime = now;
 
     const totalMs = attendance.sessions.reduce(
-      (sum, s) => sum + (s.checkOutTime ? new Date(s.checkOutTime) - new Date(s.checkInTime) : 0),
+      (sum, s) => sum + (s.checkOutTime ? Math.max(0, new Date(s.checkOutTime) - new Date(s.checkInTime)) : 0),
       0
     );
     attendance.hoursWorked = Math.round((totalMs / (1000 * 60 * 60)) * 100) / 100;
@@ -154,20 +158,15 @@ exports.requestCorrection = async (req, res) => {
     const correctionDate = new Date(date);
     correctionDate.setHours(0, 0, 0, 0);
 
-    const combineDateAndTime = (timeStr) => {
-      if (!timeStr) return undefined;
-      const [hours, minutes] = timeStr.split(':').map(Number);
-      const combined = new Date(correctionDate);
-      combined.setHours(hours, minutes, 0, 0);
-      return combined;
-    };
-
+    // checkInTime/checkOutTime arrive as full ISO timestamps already combined with the
+    // employee's local time zone on the client — the server must not re-derive the
+    // time-of-day using its own zone, since that silently shifts the requested time.
     const correction = await AttendanceCorrection.create({
       employeeId: req.user.id,
       date: correctionDate,
       reason: reason.trim(),
-      requestedCheckInTime: combineDateAndTime(checkInTime),
-      requestedCheckOutTime: combineDateAndTime(checkOutTime)
+      requestedCheckInTime: checkInTime ? new Date(checkInTime) : undefined,
+      requestedCheckOutTime: checkOutTime ? new Date(checkOutTime) : undefined
     });
 
     res.status(201).json({ success: true, correction });
@@ -251,7 +250,7 @@ exports.updateCorrectionRequest = async (req, res) => {
 
       if (attendance.checkInTime && attendance.checkOutTime) {
         const totalMs = attendance.sessions.reduce(
-          (sum, s) => sum + (s.checkOutTime ? new Date(s.checkOutTime) - new Date(s.checkInTime) : 0),
+          (sum, s) => sum + (s.checkOutTime ? Math.max(0, new Date(s.checkOutTime) - new Date(s.checkInTime)) : 0),
           0
         );
         attendance.hoursWorked = Math.round((totalMs / (1000 * 60 * 60)) * 100) / 100;

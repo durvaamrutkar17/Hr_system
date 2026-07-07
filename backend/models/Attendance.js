@@ -6,6 +6,10 @@ const sessionSchema = new mongoose.Schema({
     required: true
   },
   checkOutTime: Date,
+  workMode: {
+    type: String,
+    enum: ['WFO', 'WFH']
+  },
   reason: String // required for any session after the first one that day
 }, { _id: false });
 

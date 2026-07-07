@@ -3,6 +3,7 @@ import { documentAPI, FILE_BASE_URL } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './Documents.css';
 
 const formatDate = (date) =>
@@ -17,6 +18,7 @@ const Documents = () => {
   const [uploading, setUploading] = useState(false);
   const { message, showToast } = useToast();
   const fileInputRef = useRef(null);
+  const [confirmState, setConfirmState] = useState(null);
 
   useEffect(() => {
     fetchDocuments();
@@ -73,9 +75,16 @@ const Documents = () => {
     }
   };
 
-  const handleDelete = async (doc) => {
-    if (!window.confirm(`Remove "${doc.fileName}"?`)) return;
+  const handleDelete = (doc) => {
+    setConfirmState({
+      message: `Remove "${doc.fileName}"?`,
+      confirmLabel: 'Remove',
+      onConfirm: () => performDelete(doc)
+    });
+  };
 
+  const performDelete = async (doc) => {
+    setConfirmState(null);
     try {
       await documentAPI.deleteDocument(doc._id);
       showToast('success', 'Document removed');
@@ -172,6 +181,14 @@ const Documents = () => {
           </button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

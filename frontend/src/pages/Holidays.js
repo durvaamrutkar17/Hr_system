@@ -3,6 +3,7 @@ import { holidayAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './Holidays.css';
 
 const formatDay = (date) =>
@@ -16,6 +17,7 @@ const Holidays = ({ viewMode }) => {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [confirmState, setConfirmState] = useState(null);
   const { message, showToast } = useToast();
 
   const isReviewer = user?.role === 'manager' || user?.role === 'admin';
@@ -73,9 +75,16 @@ const Holidays = ({ viewMode }) => {
     }
   };
 
-  const handleDelete = async (holiday) => {
-    if (!window.confirm(`Remove "${holiday.name}"?`)) return;
+  const handleDelete = (holiday) => {
+    setConfirmState({
+      message: `Remove "${holiday.name}"?`,
+      confirmLabel: 'Remove',
+      onConfirm: () => performDelete(holiday)
+    });
+  };
 
+  const performDelete = async (holiday) => {
+    setConfirmState(null);
     try {
       await holidayAPI.deleteHoliday(holiday._id);
       showToast('success', 'Holiday removed');
@@ -188,6 +197,14 @@ const Holidays = ({ viewMode }) => {
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

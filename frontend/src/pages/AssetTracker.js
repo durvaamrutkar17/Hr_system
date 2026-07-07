@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { assetAPI, userAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './AssetTracker.css';
 
 const formatDate = (date) =>
@@ -14,6 +15,7 @@ const AssetTracker = () => {
   const [assigning, setAssigning] = useState(false);
   const { message, showToast } = useToast();
   const [form, setForm] = useState({ employeeId: '', itemName: '', serialNumber: '' });
+  const [confirmState, setConfirmState] = useState(null);
 
   useEffect(() => {
     fetchAll();
@@ -71,9 +73,16 @@ const AssetTracker = () => {
     }
   };
 
-  const handleMarkReturned = async (asset) => {
-    if (!window.confirm(`Mark "${asset.itemName}" as returned?`)) return;
+  const handleMarkReturned = (asset) => {
+    setConfirmState({
+      message: `Mark "${asset.itemName}" as returned?`,
+      confirmLabel: 'Mark returned',
+      onConfirm: () => performMarkReturned(asset)
+    });
+  };
 
+  const performMarkReturned = async (asset) => {
+    setConfirmState(null);
     try {
       await assetAPI.updateAsset(asset._id, { status: 'returned' });
       showToast('success', 'Asset marked returned');
@@ -152,6 +161,14 @@ const AssetTracker = () => {
           <p className="no-records">No assets assigned yet</p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

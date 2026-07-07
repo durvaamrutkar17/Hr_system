@@ -16,6 +16,7 @@ const employeeMenuItems = [
   { icon: <AiOutlineCalendar />, label: 'Holidays', path: '/holidays' },
   { icon: <AiOutlineFile />, label: 'Reimbursement', path: '/reimbursement' },
   { icon: <BiNote />, label: 'Announcements', path: '/announcements' },
+  { icon: <FiMonitor />, label: 'My Assets', path: '/my-assets' },
   { icon: <AiOutlineFile />, label: 'Exit / Resignation', path: '/exit' }
 ];
 

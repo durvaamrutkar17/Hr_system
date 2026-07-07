@@ -14,6 +14,8 @@ const attendanceCorrectionSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Reason is required']
   },
+  requestedCheckInTime: Date,
+  requestedCheckOutTime: Date,
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],

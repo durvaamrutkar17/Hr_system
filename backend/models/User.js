@@ -76,6 +76,13 @@ const userSchema = new mongoose.Schema({
     enum: ['active', 'inactive', 'resigned'],
     default: 'active'
   },
+  salaryStructure: {
+    basic: { type: Number, default: 0 },
+    hra: { type: Number, default: 0 },
+    specialAllowance: { type: Number, default: 0 },
+    professionalTax: { type: Number, default: 0 },
+    tds: { type: Number, default: 0 }
+  },
   createdAt: {
     type: Date,
     default: Date.now

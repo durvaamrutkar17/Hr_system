@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
+import { validateEmployeeForm } from '../utils/formValidation';
 import './Login.css';
 
 const Register = () => {
@@ -14,6 +16,7 @@ const Register = () => {
     department: '',
     dateOfJoining: new Date().toISOString().split('T')[0]
   });
+  const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { register } = useAuth();
@@ -22,13 +25,21 @@ const Register = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    setFieldErrors(prev => (prev[name] ? { ...prev, [name]: undefined } : prev));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
+    const errors = validateEmployeeForm(formData);
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError('Please fix the highlighted fields');
+      return;
+    }
+
+    setLoading(true);
     try {
       await register(formData);
       navigate('/dashboard');
@@ -49,7 +60,7 @@ const Register = () => {
 
         {error && <div className="error-message">{error}</div>}
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} noValidate>
           <div className="form-row">
             <div className="form-group" style={{ flex: 1 }}>
               <label htmlFor="firstName">First Name</label>
@@ -59,9 +70,10 @@ const Register = () => {
                 name="firstName"
                 value={formData.firstName}
                 onChange={handleChange}
-                required
                 placeholder="First name"
+                className={fieldErrors.firstName ? 'input-error' : ''}
               />
+              {fieldErrors.firstName && <p className="field-error">{fieldErrors.firstName}</p>}
             </div>
             <div className="form-group" style={{ flex: 1 }}>
               <label htmlFor="lastName">Last Name</label>
@@ -71,9 +83,10 @@ const Register = () => {
                 name="lastName"
                 value={formData.lastName}
                 onChange={handleChange}
-                required
                 placeholder="Last name"
+                className={fieldErrors.lastName ? 'input-error' : ''}
               />
+              {fieldErrors.lastName && <p className="field-error">{fieldErrors.lastName}</p>}
             </div>
           </div>
 
@@ -85,22 +98,23 @@ const Register = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              required
               placeholder="Enter your email"
+              className={fieldErrors.email ? 'input-error' : ''}
             />
+            {fieldErrors.email && <p className="field-error">{fieldErrors.email}</p>}
           </div>
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
+            <PasswordInput
               id="password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              required
               placeholder="Enter password (min 6 characters)"
+              className={fieldErrors.password ? 'input-error' : ''}
             />
+            {fieldErrors.password && <p className="field-error">{fieldErrors.password}</p>}
           </div>
 
           <div className="form-group">
@@ -111,9 +125,10 @@ const Register = () => {
               name="phone"
               value={formData.phone}
               onChange={handleChange}
-              required
               placeholder="10-digit phone number"
+              className={fieldErrors.phone ? 'input-error' : ''}
             />
+            {fieldErrors.phone && <p className="field-error">{fieldErrors.phone}</p>}
           </div>
 
           <div className="form-group">
@@ -124,9 +139,10 @@ const Register = () => {
               name="designation"
               value={formData.designation}
               onChange={handleChange}
-              required
               placeholder="e.g., Software Engineer"
+              className={fieldErrors.designation ? 'input-error' : ''}
             />
+            {fieldErrors.designation && <p className="field-error">{fieldErrors.designation}</p>}
           </div>
 
           <div className="form-group">
@@ -136,7 +152,7 @@ const Register = () => {
               name="department"
               value={formData.department}
               onChange={handleChange}
-              required
+              className={fieldErrors.department ? 'input-error' : ''}
             >
               <option value="">Select Department</option>
               <option value="Engineering">Engineering</option>
@@ -146,6 +162,7 @@ const Register = () => {
               <option value="Marketing">Marketing</option>
               <option value="Operations">Operations</option>
             </select>
+            {fieldErrors.department && <p className="field-error">{fieldErrors.department}</p>}
           </div>
 
           <div className="form-group">
@@ -156,8 +173,9 @@ const Register = () => {
               name="dateOfJoining"
               value={formData.dateOfJoining}
               onChange={handleChange}
-              required
+              className={fieldErrors.dateOfJoining ? 'input-error' : ''}
             />
+            {fieldErrors.dateOfJoining && <p className="field-error">{fieldErrors.dateOfJoining}</p>}
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>

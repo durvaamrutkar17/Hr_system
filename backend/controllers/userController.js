@@ -6,7 +6,7 @@ const User = require('../models/User');
 exports.getUsers = async (req, res) => {
   try {
     const users = await User.find({ status: 'active' })
-      .select('firstName lastName email phone designation department role dateOfJoining workMode casualLeaveBalance sickLeaveBalance earnedLeaveBalance')
+      .select('firstName lastName email phone designation department role dateOfJoining workMode casualLeaveBalance sickLeaveBalance earnedLeaveBalance salaryStructure')
       .sort({ firstName: 1 });
 
     res.status(200).json({ success: true, users });
@@ -20,12 +20,14 @@ exports.getUsers = async (req, res) => {
 // @access  Private/Manager/Admin
 exports.createEmployee = async (req, res) => {
   try {
-    const { firstName, lastName, email, password, phone, designation, department, dateOfJoining, role } = req.body;
+    const { firstName, lastName, email, password, phone, designation, department, dateOfJoining, role, salaryStructure } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'Email already in use' });
     }
+
+    const toNonNegative = (value) => Math.max(0, Number(value) || 0);
 
     const user = await User.create({
       firstName,
@@ -36,7 +38,14 @@ exports.createEmployee = async (req, res) => {
       designation,
       department,
       dateOfJoining,
-      role: role === 'manager' ? 'manager' : 'employee'
+      role: role === 'manager' ? 'manager' : 'employee',
+      salaryStructure: {
+        basic: toNonNegative(salaryStructure?.basic),
+        hra: toNonNegative(salaryStructure?.hra),
+        specialAllowance: toNonNegative(salaryStructure?.specialAllowance),
+        professionalTax: toNonNegative(salaryStructure?.professionalTax),
+        tds: toNonNegative(salaryStructure?.tds)
+      }
     });
 
     const userSafe = user.toObject();

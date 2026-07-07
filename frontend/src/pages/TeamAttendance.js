@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { attendanceAPI, userAPI, leaveAPI } from '../services/api';
-import { computeLeaveDayStatuses } from '../utils/leavePolicy';
+import { buildMonthAttendanceRows, getDayStatus } from '../utils/attendanceCalendar';
 import './TeamAttendance.css';
 
 const TeamAttendance = () => {
@@ -37,14 +37,14 @@ const TeamAttendance = () => {
     }
   };
 
+  const isAllSelected = selectedEmployeeId === 'all';
+
   const fetchAttendance = async () => {
     try {
       setLoading(true);
-      const response = await attendanceAPI.getAttendance({
-        employeeId: selectedEmployeeId,
-        month: selectedMonth,
-        year: selectedYear
-      });
+      const params = { month: selectedMonth, year: selectedYear };
+      if (!isAllSelected) params.employeeId = selectedEmployeeId;
+      const response = await attendanceAPI.getAttendance(params);
       setAttendance(response.data.attendance || []);
     } catch (error) {
       console.error('Error fetching attendance:', error);
@@ -55,7 +55,9 @@ const TeamAttendance = () => {
 
   const fetchLeaves = async () => {
     try {
-      const response = await leaveAPI.getEmployeeLeaves(selectedEmployeeId);
+      const response = isAllSelected
+        ? await leaveAPI.getLeaves()
+        : await leaveAPI.getEmployeeLeaves(selectedEmployeeId);
       setLeaves(response.data.leaves || []);
     } catch (error) {
       console.error('Error fetching leaves:', error);
@@ -66,14 +68,28 @@ const TeamAttendance = () => {
   const presentDays = attendance.filter((r) => r.checkInTime).length;
   const selectedEmployee = employees.find((e) => e._id === selectedEmployeeId);
 
-  const attendanceDates = new Set(attendance.map((r) => new Date(r.date).toDateString()));
-  const leaveOnlyDays = computeLeaveDayStatuses(selectedEmployee?.dateOfJoining, leaves, selectedMonth, selectedYear)
-    .filter((d) => !attendanceDates.has(d.date.toDateString()));
+  const employeesToShow = isAllSelected ? employees : selectedEmployee ? [selectedEmployee] : [];
 
-  const combinedRows = [
-    ...attendance.map((record) => ({ kind: 'attendance', date: new Date(record.date), record })),
-    ...leaveOnlyDays.map((day) => ({ kind: 'leave', date: day.date, day }))
-  ].sort((a, b) => b.date - a.date);
+  const attendanceByEmployee = attendance.reduce((acc, r) => {
+    const empId = r.employeeId?._id || r.employeeId;
+    (acc[empId] = acc[empId] || []).push(r);
+    return acc;
+  }, {});
+  const leavesByEmployee = leaves.reduce((acc, l) => {
+    const empId = l.employeeId?._id || l.employeeId;
+    (acc[empId] = acc[empId] || []).push(l);
+    return acc;
+  }, {});
+
+  const combinedRows = employeesToShow.flatMap((emp) =>
+    buildMonthAttendanceRows({
+      dateOfJoining: emp.dateOfJoining,
+      attendance: attendanceByEmployee[emp._id] || [],
+      leaves: leavesByEmployee[emp._id] || [],
+      month: selectedMonth,
+      year: selectedYear
+    }).map((row) => ({ ...row, employee: emp }))
+  ).sort((a, b) => b.date - a.date);
 
   return (
     <div className="team-attendance-page">
@@ -83,6 +99,7 @@ const TeamAttendance = () => {
         <div className="form-group">
           <label>Employee</label>
           <select value={selectedEmployeeId} onChange={(e) => setSelectedEmployeeId(e.target.value)}>
+            <option value="all">All Employees</option>
             {employees.map((emp) => (
               <option key={emp._id} value={emp._id}>
                 {emp.firstName} {emp.lastName} — {emp.designation}
@@ -113,7 +130,11 @@ const TeamAttendance = () => {
       <div className="history-section">
         <div className="history-header">
           <h2 className="section-title">
-            {selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}'s History` : 'History'}
+            {isAllSelected
+              ? "All Employees' History"
+              : selectedEmployee
+              ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}'s History`
+              : 'History'}
           </h2>
           {!loading && attendance.length > 0 && (
             <div className="history-summary">
@@ -141,7 +162,35 @@ const TeamAttendance = () => {
               </thead>
               <tbody>
                 {combinedRows.map((row) => {
-                  const employeeName = selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : '-';
+                  const employeeName = row.employee ? `${row.employee.firstName} ${row.employee.lastName}` : '-';
+
+                  if (row.kind === 'holiday') {
+                    return (
+                      <tr key={`holiday-${row.employee._id}-${row.date.toISOString()}`} className="attendance-table-row">
+                        <td><p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p></td>
+                        <td>{employeeName}</td>
+                        <td><span className="status-badge holiday">Holiday</span></td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                    );
+                  }
+
+                  if (row.kind === 'absent') {
+                    return (
+                      <tr key={`absent-${row.employee._id}-${row.date.toISOString()}`} className="attendance-table-row">
+                        <td><p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p></td>
+                        <td>{employeeName}</td>
+                        <td><span className="status-badge absent">Absent</span></td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                        <td>-</td>
+                      </tr>
+                    );
+                  }
 
                   if (row.kind === 'leave') {
                     const status = row.day.paid
@@ -166,19 +215,13 @@ const TeamAttendance = () => {
                   const hours = record.hoursWorked || 0;
                   const workingHours = Math.min(hours, 9);
                   const flexHours = Math.max(hours - 9, 0);
-                  const status = !record.checkInTime
-                    ? { label: 'Absent', className: 'absent' }
-                    : hours >= 9
-                    ? { label: 'Present', className: 'present' }
-                    : hours >= 5
-                    ? { label: 'Half Day', className: 'half-day' }
-                    : { label: 'Absent', className: 'absent' };
+                  const status = getDayStatus(record, row.date);
 
                   return (
                     <React.Fragment key={record._id}>
                       <tr className="attendance-table-row">
                         <td>
-                          <p className="date-label">{new Date(record.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                          <p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                           <p className="work-mode">{record.workMode}</p>
                         </td>
                         <td>{employeeName}</td>

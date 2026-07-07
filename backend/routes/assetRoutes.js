@@ -8,7 +8,7 @@ const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/', protect, authorize('manager', 'admin'), getAssets);
+router.get('/', protect, getAssets);
 router.post('/', protect, authorize('manager', 'admin'), createAsset);
 router.put('/:id', protect, authorize('manager', 'admin'), updateAsset);
 

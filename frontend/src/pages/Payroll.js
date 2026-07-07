@@ -20,9 +20,15 @@ const computeRow = (row) => {
   return { gross, pf, otherDeductions, lopAmount, totalDeductions, netPayout };
 };
 
-const emptyRow = () => ({
-  basic: 0, hra: 0, specialAllowance: 0, professionalTax: 0, tds: 0, lopDays: 0,
-  processed: false, expanded: true
+const defaultRow = (emp) => ({
+  basic: emp.salaryStructure?.basic || 0,
+  hra: emp.salaryStructure?.hra || 0,
+  specialAllowance: emp.salaryStructure?.specialAllowance || 0,
+  professionalTax: emp.salaryStructure?.professionalTax || 0,
+  tds: emp.salaryStructure?.tds || 0,
+  lopDays: 0,
+  processed: false,
+  expanded: false
 });
 
 const Payroll = () => {
@@ -77,7 +83,7 @@ const Payroll = () => {
             expanded: false
           };
         } else {
-          nextRows[emp._id] = emptyRow();
+          nextRows[emp._id] = defaultRow(emp);
         }
       });
 

@@ -141,19 +141,33 @@ exports.getAttendance = async (req, res) => {
 // @access  Private
 exports.requestCorrection = async (req, res) => {
   try {
-    const { date, reason } = req.body;
+    const { date, reason, checkInTime, checkOutTime } = req.body;
 
     if (!date || !reason || !reason.trim()) {
       return res.status(400).json({ success: false, message: 'Date and reason are required' });
     }
 
+    if (!checkInTime && !checkOutTime) {
+      return res.status(400).json({ success: false, message: 'Provide the correct check-in time, check-out time, or both' });
+    }
+
     const correctionDate = new Date(date);
     correctionDate.setHours(0, 0, 0, 0);
+
+    const combineDateAndTime = (timeStr) => {
+      if (!timeStr) return undefined;
+      const [hours, minutes] = timeStr.split(':').map(Number);
+      const combined = new Date(correctionDate);
+      combined.setHours(hours, minutes, 0, 0);
+      return combined;
+    };
 
     const correction = await AttendanceCorrection.create({
       employeeId: req.user.id,
       date: correctionDate,
-      reason: reason.trim()
+      reason: reason.trim(),
+      requestedCheckInTime: combineDateAndTime(checkInTime),
+      requestedCheckOutTime: combineDateAndTime(checkOutTime)
     });
 
     res.status(201).json({ success: true, correction });
@@ -207,6 +221,43 @@ exports.updateCorrectionRequest = async (req, res) => {
 
     if (!correction) {
       return res.status(404).json({ success: false, message: 'Correction request not found' });
+    }
+
+    if (status === 'approved' && (correction.requestedCheckInTime || correction.requestedCheckOutTime)) {
+      const day = new Date(correction.date);
+      day.setHours(0, 0, 0, 0);
+
+      let attendance = await Attendance.findOne({ employeeId: correction.employeeId, date: day });
+      if (!attendance) {
+        attendance = new Attendance({ employeeId: correction.employeeId, date: day, workMode: 'WFO', sessions: [] });
+      }
+
+      if (correction.requestedCheckInTime) attendance.checkInTime = correction.requestedCheckInTime;
+      if (correction.requestedCheckOutTime) attendance.checkOutTime = correction.requestedCheckOutTime;
+
+      if (attendance.sessions.length === 0) {
+        if (attendance.checkInTime) {
+          attendance.sessions.push({
+            checkInTime: attendance.checkInTime,
+            checkOutTime: attendance.checkOutTime,
+            reason: 'Attendance correction approved'
+          });
+        }
+      } else {
+        const lastSession = attendance.sessions[attendance.sessions.length - 1];
+        if (correction.requestedCheckInTime) lastSession.checkInTime = correction.requestedCheckInTime;
+        if (correction.requestedCheckOutTime) lastSession.checkOutTime = correction.requestedCheckOutTime;
+      }
+
+      if (attendance.checkInTime && attendance.checkOutTime) {
+        const totalMs = attendance.sessions.reduce(
+          (sum, s) => sum + (s.checkOutTime ? new Date(s.checkOutTime) - new Date(s.checkInTime) : 0),
+          0
+        );
+        attendance.hoursWorked = Math.round((totalMs / (1000 * 60 * 60)) * 100) / 100;
+      }
+
+      await attendance.save();
     }
 
     res.status(200).json({ success: true, correction });

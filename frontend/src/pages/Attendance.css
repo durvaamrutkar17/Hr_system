@@ -207,6 +207,16 @@
   color: #721c24;
 }
 
+.status-badge.leave {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.status-badge.holiday {
+  background-color: #e6e6e6;
+  color: #555;
+}
+
 /* Month/Year selector */
 .month-selector {
   display: flex;

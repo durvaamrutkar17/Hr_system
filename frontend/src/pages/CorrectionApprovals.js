@@ -75,6 +75,10 @@ const CorrectionApprovals = () => {
                   <p className="approval-name">{c.employeeId?.firstName} {c.employeeId?.lastName}</p>
                   <p className="approval-meta">
                     {new Date(c.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {' · '}
+                    {c.requestedCheckInTime ? new Date(c.requestedCheckInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                    {' – '}
+                    {c.requestedCheckOutTime ? new Date(c.requestedCheckOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
                   </p>
                   <p className="approval-reason">{c.reason}</p>
                 </div>

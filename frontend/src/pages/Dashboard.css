@@ -65,6 +65,13 @@
   border-color: #1b4d4d !important;
 }
 
+.mode-hint {
+  width: 100%;
+  margin: 0;
+  color: #b3401f;
+  font-size: 13px;
+}
+
 .check-in-status {
   background-color: #d4edda;
   border-left: 4px solid #27ae60;
@@ -127,8 +134,13 @@
   color: white;
 }
 
-.check-in-btn:hover {
+.check-in-btn:hover:not(:disabled) {
   background-color: #2d6b6b;
+}
+
+.check-in-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .check-out-btn {

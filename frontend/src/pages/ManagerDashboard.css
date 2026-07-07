@@ -251,6 +251,25 @@
   box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);
 }
 
+.modal-group input.input-error,
+.modal-group select.input-error,
+.modal-group .input-error input {
+  border-color: #d64545;
+}
+
+.field-error {
+  margin: 4px 0 0;
+  color: #d64545;
+  font-size: 12px;
+}
+
+.modal-section-label {
+  margin: 0;
+  color: #333;
+  font-weight: 500;
+  font-size: 13px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;
@@ -390,6 +409,64 @@
   color: #333;
   font-weight: 600;
   font-size: 14px;
+}
+
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.detail-list-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+.detail-list-row > div:first-child {
+  flex: 1 1 160px;
+  min-width: 0;
+}
+
+.detail-list-title {
+  margin: 0;
+  color: #333;
+  font-weight: 600;
+  font-size: 13px;
+  overflow-wrap: break-word;
+}
+
+.detail-list-meta {
+  margin: 2px 0 0;
+  color: #888;
+  font-size: 12px;
+  overflow-wrap: break-word;
+}
+
+.detail-list-empty {
+  margin: 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.detail-list-row > .status-badge {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.detail-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.detail-download-link {
+  text-decoration: none;
+  font-size: 15px;
 }
 
 @media (max-width: 768px) {

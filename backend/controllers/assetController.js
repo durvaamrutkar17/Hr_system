@@ -2,10 +2,19 @@ const Asset = require('../models/Asset');
 
 // @desc    Get assets
 // @route   GET /api/assets
-// @access  Private/Manager/Admin
+// @access  Private
 exports.getAssets = async (req, res) => {
   try {
-    const assets = await Asset.find()
+    const { employeeId } = req.query;
+    const query = {};
+
+    if (employeeId) {
+      query.employeeId = employeeId;
+    } else if (req.user.role === 'employee') {
+      query.employeeId = req.user.id;
+    }
+
+    const assets = await Asset.find(query)
       .populate('employeeId', 'firstName lastName')
       .sort({ createdAt: -1 });
     res.status(200).json({ success: true, assets });

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { attendanceAPI, leaveAPI, announcementAPI } from '../services/api';
+import { isOnProbation } from '../utils/leavePolicy';
+import { buildMonthAttendanceRows, summarizeMonthRows } from '../utils/attendanceCalendar';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import './Dashboard.css';
@@ -12,14 +14,18 @@ const Dashboard = () => {
   const { user } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [workMode, setWorkMode] = useState('WFO');
+  const [workMode, setWorkMode] = useState('');
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
   const [checkInTime, setCheckInTime] = useState(null);
   const [todayAttendance, setTodayAttendance] = useState(null);
   const [showReasonInput, setShowReasonInput] = useState(false);
   const [checkInReason, setCheckInReason] = useState('');
   const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
+  const [monthAttendance, setMonthAttendance] = useState([]);
+  const [monthLeaves, setMonthLeaves] = useState([]);
   const { message, showToast } = useToast();
+
+  const onProbation = isOnProbation(user?.dateOfJoining);
 
   // True once the employee has already checked out at least once today (e.g. took a half day) —
   // checking in again for a later session (like working at night) requires a reason.
@@ -28,7 +34,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchData();
     checkTodayStatus();
+    fetchMonthLeaves();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const fetchMonthLeaves = async () => {
+    try {
+      const response = await leaveAPI.getEmployeeLeaves(user._id);
+      setMonthLeaves(response.data.leaves || []);
+    } catch (error) {
+      console.error('Error fetching leaves:', error);
+    }
+  };
 
   const checkTodayStatus = async () => {
     try {
@@ -43,6 +60,7 @@ const Dashboard = () => {
       });
 
       const attendance = response.data.attendance || [];
+      setMonthAttendance(attendance);
 
       // Find today's record by comparing dates
       const todayRecord = attendance.find(record => {
@@ -53,7 +71,6 @@ const Dashboard = () => {
 
       if (todayRecord) {
         setTodayAttendance(todayRecord);
-        setWorkMode(todayRecord.workMode || 'WFO');
 
         const sessions = todayRecord.sessions && todayRecord.sessions.length > 0
           ? todayRecord.sessions
@@ -63,9 +80,14 @@ const Dashboard = () => {
         if (lastSession && !lastSession.checkOutTime) {
           setHasCheckedIn(true);
           setCheckInTime(lastSession.checkInTime);
+          setWorkMode(todayRecord.workMode || 'WFO');
         } else {
+          // Already checked out for this session — require an explicit, fresh work
+          // mode choice before allowing a check-in-again, rather than silently
+          // carrying over the mode from the session that just ended.
           setHasCheckedIn(false);
           setCheckInTime(null);
+          setWorkMode('');
         }
       } else {
         setTodayAttendance(null);
@@ -90,6 +112,10 @@ const Dashboard = () => {
   };
 
   const handleCheckIn = async () => {
+    if (!workMode) {
+      showToast('error', 'Please select WFO or WFH before checking in');
+      return;
+    }
     if (needsReasonToCheckInAgain && !checkInReason.trim()) {
       showToast('error', 'Please enter a reason for checking in again');
       return;
@@ -124,12 +150,24 @@ const Dashboard = () => {
       if (response.data.attendance) {
         setHasCheckedIn(false);
         setTodayAttendance(response.data.attendance);
+        setWorkMode('');
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.message;
       showToast('error', errorMsg);
     }
   };
+
+  const probationRows = onProbation
+    ? buildMonthAttendanceRows({
+        dateOfJoining: user?.dateOfJoining,
+        attendance: monthAttendance,
+        leaves: monthLeaves,
+        month: new Date().getMonth() + 1,
+        year: new Date().getFullYear()
+      })
+    : [];
+  const { presentCount, absentCount, leaveCount } = summarizeMonthRows(probationRows);
 
   return (
     <div className="dashboard">
@@ -156,6 +194,9 @@ const Dashboard = () => {
               WFH
             </button>
           </div>
+          {!workMode && !hasCheckedIn && (
+            <p className="mode-hint">Select a work mode above before checking in</p>
+          )}
         </div>
 
         {hasCheckedIn ? (
@@ -197,7 +238,7 @@ const Dashboard = () => {
                   <button
                     className="check-in-btn"
                     onClick={handleCheckIn}
-                    disabled={submittingCheckIn}
+                    disabled={!workMode || submittingCheckIn}
                   >
                     {submittingCheckIn ? 'Checking in...' : 'Confirm Check In'}
                   </button>
@@ -212,35 +253,61 @@ const Dashboard = () => {
             )}
           </div>
         ) : (
-          <button className="check-in-btn" onClick={handleCheckIn}>
-            Check In
+          <button className="check-in-btn" onClick={handleCheckIn} disabled={!workMode || submittingCheckIn}>
+            {submittingCheckIn ? 'Checking in...' : 'Check In'}
           </button>
         )}
       </div>
 
-      <div className="leave-stats">
-        <div className="stat-card">
-          <div className="stat-icon">☀️</div>
-          <div className="stat-content">
-            <h3>{user?.casualLeaveBalance || 0}</h3>
-            <p>Casual Leave left</p>
+      {onProbation ? (
+        <div className="leave-stats">
+          <div className="stat-card">
+            <div className="stat-icon">✅</div>
+            <div className="stat-content">
+              <h3>{presentCount}</h3>
+              <p>Present this month</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">❌</div>
+            <div className="stat-content">
+              <h3>{absentCount}</h3>
+              <p>Absent this month</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">☀️</div>
+            <div className="stat-content">
+              <h3>{leaveCount}</h3>
+              <p>Leave this month</p>
+            </div>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">🏥</div>
-          <div className="stat-content">
-            <h3>{user?.sickLeaveBalance || 0}</h3>
-            <p>Sick Leave left</p>
+      ) : (
+        <div className="leave-stats">
+          <div className="stat-card">
+            <div className="stat-icon">☀️</div>
+            <div className="stat-content">
+              <h3>{user?.casualLeaveBalance || 0}</h3>
+              <p>Casual Leave left</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">🏥</div>
+            <div className="stat-content">
+              <h3>{user?.sickLeaveBalance || 0}</h3>
+              <p>Sick Leave left</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon">📈</div>
+            <div className="stat-content">
+              <h3>{user?.earnedLeaveBalance || 0}</h3>
+              <p>Earned Leave left</p>
+            </div>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon">📈</div>
-          <div className="stat-content">
-            <h3>{user?.earnedLeaveBalance || 0}</h3>
-            <p>Earned Leave left</p>
-          </div>
-        </div>
-      </div>
+      )}
 
       <div className="announcements-section">
         <div className="section-header">

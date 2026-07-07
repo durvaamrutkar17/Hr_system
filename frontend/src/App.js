@@ -12,6 +12,7 @@ import Salary from './pages/Salary';
 import Attendance from './pages/Attendance';
 import Reimbursement from './pages/Reimbursement';
 import Documents from './pages/Documents';
+import MyAssets from './pages/MyAssets';
 import Holidays from './pages/Holidays';
 import Resignation from './pages/Resignation';
 import ManagerDashboard from './pages/ManagerDashboard';
@@ -37,13 +38,18 @@ const PrivateRoute = ({ children }) => {
 const AppContent = () => {
   const { user } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [viewMode, setViewMode] = useState('me');
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'me');
 
   const isReviewer = user?.role === 'manager' || user?.role === 'admin';
   const effectiveViewMode = isReviewer ? viewMode : 'me';
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  const changeViewMode = (mode) => {
+    setViewMode(mode);
+    localStorage.setItem('viewMode', mode);
   };
 
   useEffect(() => {
@@ -61,7 +67,7 @@ const AppContent = () => {
     <>
       {user ? (
         <div className="app-layout">
-          <Header onToggleSidebar={toggleSidebar} viewMode={effectiveViewMode} onChangeViewMode={setViewMode} />
+          <Header onToggleSidebar={toggleSidebar} viewMode={effectiveViewMode} onChangeViewMode={changeViewMode} />
           <div className="app-container">
             <Sidebar isOpen={sidebarOpen} toggleSidebar={toggleSidebar} viewMode={effectiveViewMode} />
             <main className="main-content">
@@ -72,6 +78,7 @@ const AppContent = () => {
                 <Route path="/salary" element={<Salary />} />
                 <Route path="/attendance" element={<Attendance />} />
                 <Route path="/documents" element={<Documents />} />
+                <Route path="/my-assets" element={<MyAssets />} />
                 <Route path="/holidays" element={<Holidays viewMode={effectiveViewMode} />} />
                 <Route path="/reimbursement" element={<Reimbursement />} />
                 <Route path="/exit" element={<Resignation />} />

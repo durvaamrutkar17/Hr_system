@@ -74,6 +74,18 @@ form {
   box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);
 }
 
+.form-group input.input-error,
+.form-group select.input-error,
+.form-group .input-error input {
+  border-color: #d64545;
+}
+
+.field-error {
+  margin: 6px 0 0;
+  color: #d64545;
+  font-size: 12px;
+}
+
 .login-btn {
   width: 100%;
   padding: 12px;

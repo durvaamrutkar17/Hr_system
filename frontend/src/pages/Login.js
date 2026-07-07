@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import PasswordInput from '../components/PasswordInput';
 import './Login.css';
 
 const Login = () => {
@@ -56,8 +57,7 @@ const Login = () => {
 
           <div className="form-group">
             <label htmlFor="password">Password</label>
-            <input
-              type="password"
+            <PasswordInput
               id="password"
               name="password"
               value={formData.password}

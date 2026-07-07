@@ -39,11 +39,11 @@ exports.checkIn = async (req, res) => {
         return res.status(400).json({ success: false, message: 'Please provide a reason for checking in again today' });
       }
 
-      existingAttendance.sessions.push({ checkInTime: new Date(), reason: reason.trim(), workMode });
+      // Work mode is locked for the whole day once set at the first check-in — an employee
+      // can't switch between WFO/WFH mid-day, so this reuses the day's original mode
+      // regardless of whatever the client sent.
+      existingAttendance.sessions.push({ checkInTime: new Date(), reason: reason.trim(), workMode: existingAttendance.workMode });
       existingAttendance.checkOutTime = undefined;
-      // The day-level workMode reflects the most recently started session, since each
-      // check-in can use a different mode (e.g. WFO in the morning, WFH that night)
-      if (workMode) existingAttendance.workMode = workMode;
       await existingAttendance.save();
 
       return res.status(201).json({ success: true, attendance: existingAttendance, message: 'Checked in again' });

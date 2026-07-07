@@ -77,17 +77,17 @@ const Dashboard = () => {
           : (todayRecord.checkInTime ? [{ checkInTime: todayRecord.checkInTime, checkOutTime: todayRecord.checkOutTime }] : []);
         const lastSession = sessions[sessions.length - 1];
 
+        // Work mode is locked for the whole day once set at the first check-in — an
+        // employee can't switch between WFO/WFH mid-day, so every session today
+        // (including a check-in-again) reuses that same mode.
+        setWorkMode(todayRecord.workMode || 'WFO');
+
         if (lastSession && !lastSession.checkOutTime) {
           setHasCheckedIn(true);
           setCheckInTime(lastSession.checkInTime);
-          setWorkMode(todayRecord.workMode || 'WFO');
         } else {
-          // Already checked out for this session — require an explicit, fresh work
-          // mode choice before allowing a check-in-again, rather than silently
-          // carrying over the mode from the session that just ended.
           setHasCheckedIn(false);
           setCheckInTime(null);
-          setWorkMode('');
         }
       } else {
         setTodayAttendance(null);
@@ -150,7 +150,7 @@ const Dashboard = () => {
       if (response.data.attendance) {
         setHasCheckedIn(false);
         setTodayAttendance(response.data.attendance);
-        setWorkMode('');
+        // Work mode stays locked to today's mode — a later check-in-again reuses it.
       }
     } catch (error) {
       const errorMsg = error.response?.data?.message || error.message;
@@ -182,20 +182,23 @@ const Dashboard = () => {
             <button
               className={`mode-btn ${workMode === 'WFO' ? 'active' : ''}`}
               onClick={() => setWorkMode('WFO')}
-              disabled={hasCheckedIn}
+              disabled={hasCheckedIn || needsReasonToCheckInAgain}
             >
               WFO
             </button>
             <button
               className={`mode-btn ${workMode === 'WFH' ? 'active' : ''}`}
               onClick={() => setWorkMode('WFH')}
-              disabled={hasCheckedIn}
+              disabled={hasCheckedIn || needsReasonToCheckInAgain}
             >
               WFH
             </button>
           </div>
-          {!workMode && !hasCheckedIn && (
+          {!workMode && !hasCheckedIn && !needsReasonToCheckInAgain && (
             <p className="mode-hint">Select a work mode above before checking in</p>
+          )}
+          {needsReasonToCheckInAgain && (
+            <p className="mode-hint">Work mode is locked to {workMode} for the rest of today</p>
           )}
         </div>
 

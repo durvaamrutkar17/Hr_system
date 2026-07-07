@@ -10,6 +10,12 @@ import './Dashboard.css';
 const formatTime = (date) =>
   date ? new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) : 'Loading...';
 
+// Saturday only needs 5 hrs for a full day; every other day needs 9.
+const requiredHoursFor = (date) => (new Date(date).getDay() === 6 ? 5 : 9);
+
+const hasCompletedRequiredHours = (attendance) =>
+  !!attendance && (attendance.hoursWorked || 0) >= requiredHoursFor(attendance.date || new Date());
+
 const Dashboard = () => {
   const { user } = useAuth();
   const [announcements, setAnnouncements] = useState([]);
@@ -77,17 +83,21 @@ const Dashboard = () => {
           : (todayRecord.checkInTime ? [{ checkInTime: todayRecord.checkInTime, checkOutTime: todayRecord.checkOutTime }] : []);
         const lastSession = sessions[sessions.length - 1];
 
-        // Work mode is locked for the whole day once set at the first check-in — an
-        // employee can't switch between WFO/WFH mid-day, so every session today
-        // (including a check-in-again) reuses that same mode.
-        setWorkMode(todayRecord.workMode || 'WFO');
-
         if (lastSession && !lastSession.checkOutTime) {
           setHasCheckedIn(true);
           setCheckInTime(lastSession.checkInTime);
+          // Mid-session: work mode is locked to whatever this session already started with.
+          setWorkMode(todayRecord.workMode || 'WFO');
         } else {
           setHasCheckedIn(false);
           setCheckInTime(null);
+          // Work mode stays locked to today's mode until the day's required hours (9,
+          // or 5 on Saturday) are done — only then can a check-in-again pick a new mode.
+          if (hasCompletedRequiredHours(todayRecord)) {
+            setWorkMode('');
+          } else {
+            setWorkMode(todayRecord.workMode || 'WFO');
+          }
         }
       } else {
         setTodayAttendance(null);
@@ -169,6 +179,10 @@ const Dashboard = () => {
     : [];
   const { presentCount, absentCount, leaveCount } = summarizeMonthRows(probationRows);
 
+  // Once checked out, the mode selector stays locked to today's mode until the day's
+  // required hours are actually done — only then can a check-in-again pick a new mode.
+  const modeLockedForToday = needsReasonToCheckInAgain && !hasCompletedRequiredHours(todayAttendance);
+
   return (
     <div className="dashboard">
       <Toast message={message} />
@@ -182,23 +196,26 @@ const Dashboard = () => {
             <button
               className={`mode-btn ${workMode === 'WFO' ? 'active' : ''}`}
               onClick={() => setWorkMode('WFO')}
-              disabled={hasCheckedIn || needsReasonToCheckInAgain}
+              disabled={hasCheckedIn || modeLockedForToday}
             >
               WFO
             </button>
             <button
               className={`mode-btn ${workMode === 'WFH' ? 'active' : ''}`}
               onClick={() => setWorkMode('WFH')}
-              disabled={hasCheckedIn || needsReasonToCheckInAgain}
+              disabled={hasCheckedIn || modeLockedForToday}
             >
               WFH
             </button>
           </div>
-          {!workMode && !hasCheckedIn && !needsReasonToCheckInAgain && (
+          {!workMode && !hasCheckedIn && !modeLockedForToday && (
             <p className="mode-hint">Select a work mode above before checking in</p>
           )}
-          {needsReasonToCheckInAgain && (
-            <p className="mode-hint">Work mode is locked to {workMode} for the rest of today</p>
+          {modeLockedForToday && (
+            <p className="mode-hint">
+              Work mode is locked to {workMode} until you complete {requiredHoursFor(todayAttendance?.date || new Date())} hrs today
+              {todayAttendance?.hoursWorked ? ` (${todayAttendance.hoursWorked.toFixed(2)} hrs logged so far)` : ''}
+            </p>
           )}
         </div>
 

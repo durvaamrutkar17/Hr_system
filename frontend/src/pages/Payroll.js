@@ -11,11 +11,26 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
 
 const formatCurrency = (value) => `₹${Math.round(value || 0).toLocaleString('en-IN')}`;
 
+const toNumber = (value) => Number(value) || 0;
+
+const sanitizeIntInput = (value) => {
+  if (value === '') return '';
+  const num = parseInt(value, 10);
+  return Number.isNaN(num) ? '' : String(Math.max(0, num));
+};
+
 const computeRow = (row) => {
-  const gross = row.basic + row.hra + row.specialAllowance;
-  const pf = Math.round(row.basic * 0.12);
-  const lopAmount = row.lopDays > 0 ? Math.round((row.basic / 30) * row.lopDays) : 0;
-  const otherDeductions = row.professionalTax + row.tds;
+  const basic = toNumber(row.basic);
+  const hra = toNumber(row.hra);
+  const specialAllowance = toNumber(row.specialAllowance);
+  const professionalTax = toNumber(row.professionalTax);
+  const tds = toNumber(row.tds);
+  const lopDays = toNumber(row.lopDays);
+
+  const gross = basic + hra + specialAllowance;
+  const pf = Math.round(basic * 0.12);
+  const lopAmount = lopDays > 0 ? Math.round((basic / 30) * lopDays) : 0;
+  const otherDeductions = professionalTax + tds;
   const totalDeductions = pf + otherDeductions + lopAmount;
   const netPayout = gross - totalDeductions;
   return { gross, pf, otherDeductions, lopAmount, totalDeductions, netPayout };
@@ -114,7 +129,7 @@ const Payroll = () => {
   };
 
   const handleProcessPayroll = () => {
-    const missingBasic = employees.filter((emp) => !rows[emp._id]?.basic);
+    const missingBasic = employees.filter((emp) => !toNumber(rows[emp._id]?.basic));
     if (missingBasic.length > 0) {
       showToast(
         'error',
@@ -142,8 +157,8 @@ const Payroll = () => {
           employeeId: emp._id,
           month: selectedMonth,
           year: selectedYear,
-          earnings: { basic: row.basic, hra: row.hra, specialAllowance: row.specialAllowance },
-          deductions: { professionalTax: row.professionalTax, tds: row.tds, lopDays: row.lopDays }
+          earnings: { basic: toNumber(row.basic), hra: toNumber(row.hra), specialAllowance: toNumber(row.specialAllowance) },
+          deductions: { professionalTax: toNumber(row.professionalTax), tds: toNumber(row.tds), lopDays: toNumber(row.lopDays) }
         });
       }));
       showToast('success', 'Payroll processed for ' + MONTH_NAMES[selectedMonth - 1]);
@@ -212,7 +227,7 @@ const Payroll = () => {
                         min="0"
                         max="31"
                         value={row.lopDays}
-                        onChange={(e) => updateRow(emp._id, 'lopDays', Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => updateRow(emp._id, 'lopDays', sanitizeIntInput(e.target.value))}
                       />
                     </div>
                     <div className="figure">
@@ -237,7 +252,7 @@ const Payroll = () => {
                           type="number"
                           min="0"
                           value={row.basic}
-                          onChange={(e) => updateRow(emp._id, 'basic', Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => updateRow(emp._id, 'basic', sanitizeIntInput(e.target.value))}
                         />
                       </div>
                       <div className="structure-group">
@@ -246,7 +261,7 @@ const Payroll = () => {
                           type="number"
                           min="0"
                           value={row.hra}
-                          onChange={(e) => updateRow(emp._id, 'hra', Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => updateRow(emp._id, 'hra', sanitizeIntInput(e.target.value))}
                         />
                       </div>
                       <div className="structure-group">
@@ -255,7 +270,7 @@ const Payroll = () => {
                           type="number"
                           min="0"
                           value={row.specialAllowance}
-                          onChange={(e) => updateRow(emp._id, 'specialAllowance', Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => updateRow(emp._id, 'specialAllowance', sanitizeIntInput(e.target.value))}
                         />
                       </div>
                       <div className="structure-group">
@@ -264,7 +279,7 @@ const Payroll = () => {
                           type="number"
                           min="0"
                           value={row.professionalTax}
-                          onChange={(e) => updateRow(emp._id, 'professionalTax', Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => updateRow(emp._id, 'professionalTax', sanitizeIntInput(e.target.value))}
                         />
                       </div>
                       <div className="structure-group">
@@ -273,7 +288,7 @@ const Payroll = () => {
                           type="number"
                           min="0"
                           value={row.tds}
-                          onChange={(e) => updateRow(emp._id, 'tds', Math.max(0, parseInt(e.target.value) || 0))}
+                          onChange={(e) => updateRow(emp._id, 'tds', sanitizeIntInput(e.target.value))}
                         />
                       </div>
                     </div>

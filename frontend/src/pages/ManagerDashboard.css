@@ -298,6 +298,48 @@
   font-size: 13px;
 }
 
+.structure-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 14px;
+}
+
+.structure-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.structure-group label {
+  margin-bottom: 6px;
+  color: #333;
+  font-weight: 500;
+  font-size: 13px;
+}
+
+.structure-group input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.structure-group input:focus {
+  outline: none;
+  border-color: #1b4d4d;
+  box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);
+}
+
+.structure-group input[type="number"]::-webkit-outer-spin-button,
+.structure-group input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.structure-group input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

@@ -182,6 +182,19 @@
   border-color: #1b4d4d;
 }
 
+.structure-group input[type="number"]::-webkit-outer-spin-button,
+.structure-group input[type="number"]::-webkit-inner-spin-button,
+.figure input[type="number"]::-webkit-outer-spin-button,
+.figure input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.structure-group input[type="number"],
+.figure input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 .process-btn {
   margin-top: 20px;
   padding: 12px 24px;

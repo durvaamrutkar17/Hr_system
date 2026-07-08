@@ -129,9 +129,10 @@ const Employees = () => {
   };
 
   const handleSalaryFieldChange = (field, value) => {
+    const sanitized = value === '' ? '' : (Number.isNaN(parseInt(value, 10)) ? '' : String(Math.max(0, parseInt(value, 10))));
     setEmployeeForm((prev) => ({
       ...prev,
-      salaryStructure: { ...prev.salaryStructure, [field]: Math.max(0, parseInt(value) || 0) }
+      salaryStructure: { ...prev.salaryStructure, [field]: sanitized }
     }));
   };
 
@@ -220,7 +221,16 @@ const Employees = () => {
 
     try {
       setAddingEmployee(true);
-      await userAPI.createEmployee(employeeForm);
+      await userAPI.createEmployee({
+        ...employeeForm,
+        salaryStructure: {
+          basic: Number(employeeForm.salaryStructure.basic) || 0,
+          hra: Number(employeeForm.salaryStructure.hra) || 0,
+          specialAllowance: Number(employeeForm.salaryStructure.specialAllowance) || 0,
+          professionalTax: Number(employeeForm.salaryStructure.professionalTax) || 0,
+          tds: Number(employeeForm.salaryStructure.tds) || 0
+        }
+      });
       showToast('success', 'Employee added');
       setShowAddModal(false);
       setEmployeeForm(emptyEmployeeForm);

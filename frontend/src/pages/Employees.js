@@ -71,6 +71,8 @@ const Employees = () => {
   const [customSalaryFields, setCustomSalaryFields] = useState([]);
   const [addingField, setAddingField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
+  const [savingFields, setSavingFields] = useState(false);
+  const { message: fieldsSaveMessage, showToast: showFieldsSaveToast } = useToast();
   const { message, showToast } = useToast();
 
   useEffect(() => {
@@ -144,7 +146,13 @@ const Employees = () => {
     setEmployeeExpenses([]);
     setEmployeeDocuments([]);
     setEmployeeLatestPayslip(null);
-    setCustomSalaryFields([]);
+    setCustomSalaryFields(
+      Object.entries(emp.customSalaryFields || {}).map(([name, value], index) => ({
+        id: `${emp._id}-${index}-${name}`,
+        name,
+        value
+      }))
+    );
     setAddingField(false);
     setNewFieldName('');
     try {
@@ -194,9 +202,31 @@ const Employees = () => {
     setCustomSalaryFields((prev) => prev.map((field) => (field.id === id ? { ...field, value } : field)));
   };
 
+  const handleSaveCustomFields = async () => {
+    if (!selectedEmployee) return;
+    try {
+      setSavingFields(true);
+      const fields = customSalaryFields.map(({ name, value }) => ({ name, value }));
+      const res = await userAPI.updateCustomFields(selectedEmployee._id, fields);
+      const savedFields = res.data.customSalaryFields || {};
+      setEmployees((prev) =>
+        prev.map((emp) => (emp._id === selectedEmployee._id ? { ...emp, customSalaryFields: savedFields } : emp))
+      );
+      setSelectedEmployee((prev) => (prev ? { ...prev, customSalaryFields: savedFields } : prev));
+      showFieldsSaveToast('success', 'Saved');
+    } catch (error) {
+      showFieldsSaveToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setSavingFields(false);
+    }
+  };
+
   const employeeHoursLogged = employeeAttendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const employeeDaysPresent = employeeAttendance.filter((r) => r.checkInTime).length;
-  const employeeFlexHours = employeeAttendance.reduce((sum, r) => sum + Math.max((r.hoursWorked || 0) - 9, 0), 0);
+  const employeeFlexHours = employeeAttendance.reduce((sum, r) => {
+    const dayCap = new Date(r.date).getDay() === 6 ? 5 : 9;
+    return sum + Math.max((r.hoursWorked || 0) - dayCap, 0);
+  }, 0);
 
   const recentLeaves = [...employeeLeaves]
     .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
@@ -690,20 +720,37 @@ const Employees = () => {
                 <p className="detail-list-empty">No payslips generated yet</p>
               )}
               {!loadingDetail && customSalaryFields.length > 0 && (
-                <div className="detail-grid custom-fields-grid">
-                  {customSalaryFields.map((field) => (
-                    <div className="detail-field" key={field.id}>
-                      <p className="detail-label">{field.name}</p>
-                      <input
-                        type="text"
-                        className="custom-field-input"
-                        value={field.value}
-                        onChange={(e) => handleCustomFieldValueChange(field.id, e.target.value)}
-                        placeholder="Enter value"
-                      />
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="detail-grid custom-fields-grid">
+                    {customSalaryFields.map((field) => (
+                      <div className="detail-field" key={field.id}>
+                        <p className="detail-label">{field.name}</p>
+                        <input
+                          type="text"
+                          className="custom-field-input"
+                          value={field.value}
+                          onChange={(e) => handleCustomFieldValueChange(field.id, e.target.value)}
+                          placeholder="Enter value"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="save-fields-row">
+                    <button
+                      type="button"
+                      className="save-fields-btn"
+                      onClick={handleSaveCustomFields}
+                      disabled={savingFields}
+                    >
+                      {savingFields ? 'Saving...' : 'Save'}
+                    </button>
+                    {fieldsSaveMessage && (
+                      <span className={`save-fields-status ${fieldsSaveMessage.type}`}>
+                        {fieldsSaveMessage.text}
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
 

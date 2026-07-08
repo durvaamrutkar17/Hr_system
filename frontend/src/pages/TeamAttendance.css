@@ -178,6 +178,45 @@
   color: #721c24;
 }
 
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-info-btn {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #888;
+  font-size: 11px;
+  font-style: italic;
+  font-weight: 700;
+  font-family: Georgia, serif;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.status-info-btn:hover {
+  border-color: #1b4d4d;
+  color: #1b4d4d;
+}
+
+.status-detail {
+  margin: 0;
+  color: #888;
+  font-size: 12px;
+  white-space: normal;
+  max-width: 400px;
+}
+
 .status-badge.leave {
   background-color: #cce5ff;
   color: #004085;
@@ -188,16 +227,22 @@
   color: #555;
 }
 
-.session-breakdown-row td {
+.detail-breakdown-row td {
   padding: 0;
   border-bottom: 1px solid #f0f0f0;
   white-space: normal;
 }
 
-.session-breakdown {
+.detail-breakdown {
   border-left: 4px solid #d4af37;
   padding: 10px 20px;
   background-color: #fdfbf3;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.session-breakdown {
   display: flex;
   flex-direction: column;
   gap: 8px;

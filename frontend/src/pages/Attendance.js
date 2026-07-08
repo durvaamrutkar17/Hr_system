@@ -298,8 +298,9 @@ const Attendance = () => {
 
                     const record = row.record;
                     const hours = record.hoursWorked || 0;
-                    const workingHours = Math.min(hours, 9);
-                    const flexHours = Math.max(hours - 9, 0);
+                    const dayCap = row.date.getDay() === 6 ? 5 : 9;
+                    const workingHours = Math.min(hours, dayCap);
+                    const flexHours = Math.max(hours - dayCap, 0);
                     const status = getDayStatus(record, row.date);
 
                     return (

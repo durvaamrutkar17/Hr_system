@@ -14,6 +14,7 @@ const TeamAttendance = () => {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState('');
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   useEffect(() => {
     fetchEmployees();
@@ -82,6 +83,15 @@ const TeamAttendance = () => {
     } catch (error) {
       console.error('Error fetching leaves:', error);
     }
+  };
+
+  const toggleRowDetail = (key) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
   };
 
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
@@ -215,16 +225,40 @@ const TeamAttendance = () => {
                   }
 
                   if (row.kind === 'absent') {
+                    const rowKey = `absent-${row.employee._id}-${row.date.toISOString()}`;
                     return (
-                      <tr key={`absent-${row.employee._id}-${row.date.toISOString()}`} className="attendance-table-row">
-                        <td><p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p></td>
-                        <td>{employeeName}</td>
-                        <td><span className="status-badge absent">Absent</span></td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                        <td>-</td>
-                      </tr>
+                      <React.Fragment key={rowKey}>
+                        <tr className="attendance-table-row">
+                          <td><p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p></td>
+                          <td>{employeeName}</td>
+                          <td>
+                            <div className="status-cell">
+                              <span className="status-badge absent">Absent</span>
+                              <button
+                                type="button"
+                                className="status-info-btn"
+                                onClick={() => toggleRowDetail(rowKey)}
+                                aria-label="View calculation"
+                              >
+                                i
+                              </button>
+                            </div>
+                          </td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                          <td>-</td>
+                        </tr>
+                        {expandedRows.has(rowKey) && (
+                          <tr className="detail-breakdown-row">
+                            <td colSpan={7}>
+                              <div className="detail-breakdown">
+                                <p className="status-detail">No check-in recorded</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   }
 
@@ -249,9 +283,12 @@ const TeamAttendance = () => {
 
                   const record = row.record;
                   const hours = record.hoursWorked || 0;
-                  const workingHours = Math.min(hours, 9);
-                  const flexHours = Math.max(hours - 9, 0);
+                  const dayCap = row.date.getDay() === 6 ? 5 : 9;
+                  const workingHours = Math.min(hours, dayCap);
+                  const flexHours = Math.max(hours - dayCap, 0);
                   const status = getDayStatus(record, row.date);
+                  const hasSessions = record.sessions && record.sessions.length > 1;
+                  const isExpanded = expandedRows.has(record._id);
 
                   return (
                     <React.Fragment key={record._id}>
@@ -261,28 +298,45 @@ const TeamAttendance = () => {
                           <p className="work-mode">{record.workMode}</p>
                         </td>
                         <td>{employeeName}</td>
-                        <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
+                        <td>
+                          <div className="status-cell">
+                            <span className={`status-badge ${status.className}`}>{status.label}</span>
+                            <button
+                              type="button"
+                              className="status-info-btn"
+                              onClick={() => toggleRowDetail(record._id)}
+                              aria-label="View calculation"
+                            >
+                              i
+                            </button>
+                          </div>
+                        </td>
                         <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                         <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                         <td>{workingHours.toFixed(2)} hrs</td>
                         <td>{flexHours > 0 ? `${flexHours.toFixed(2)} hrs` : '-'}</td>
                       </tr>
-                      {record.sessions && record.sessions.length > 1 && (
-                        <tr className="session-breakdown-row">
+                      {isExpanded && (
+                        <tr className="detail-breakdown-row">
                           <td colSpan={7}>
-                            <div className="session-breakdown">
-                              {record.sessions.map((s, idx) => (
-                                <div key={idx} className="session-row">
-                                  <span className="session-label">Session {idx + 1}</span>
-                                  {s.workMode && <span className="session-mode">{s.workMode}</span>}
-                                  <span className="session-time">
-                                    {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
-                                    {' – '}
-                                    {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
-                                  </span>
-                                  {s.reason && <span className="session-reason">{s.reason}</span>}
+                            <div className="detail-breakdown">
+                              {status.detail && <p className="status-detail">{status.detail}</p>}
+                              {hasSessions && (
+                                <div className="session-breakdown">
+                                  {record.sessions.map((s, idx) => (
+                                    <div key={idx} className="session-row">
+                                      <span className="session-label">Session {idx + 1}</span>
+                                      {s.workMode && <span className="session-mode">{s.workMode}</span>}
+                                      <span className="session-time">
+                                        {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                                        {' – '}
+                                        {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
+                                      </span>
+                                      {s.reason && <span className="session-reason">{s.reason}</span>}
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
+                              )}
                             </div>
                           </td>
                         </tr>

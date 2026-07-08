@@ -83,6 +83,11 @@ const userSchema = new mongoose.Schema({
     professionalTax: { type: Number, default: 0 },
     tds: { type: Number, default: 0 }
   },
+  customSalaryFields: {
+    type: Map,
+    of: String,
+    default: {}
+  },
   createdAt: {
     type: Date,
     default: Date.now

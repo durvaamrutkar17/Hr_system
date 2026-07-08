@@ -8,7 +8,7 @@ export const getDayStatus = (record, date) => {
 
   if (!checkedIn) {
     if (dayOfWeek === 0) return { label: 'Holiday', className: 'holiday' };
-    return { label: 'Absent', className: 'absent' };
+    return { label: 'Absent', className: 'absent', detail: 'No check-in recorded' };
   }
 
   // Checked in but not checked out yet (still working, or forgot to check out and
@@ -19,9 +19,23 @@ export const getDayStatus = (record, date) => {
 
   const hours = record.hoursWorked || 0;
   const presentThreshold = dayOfWeek === 6 ? 5 : 9;
-  if (hours >= presentThreshold) return { label: 'Present', className: 'present' };
-  if (dayOfWeek !== 6 && hours >= 5) return { label: 'Half Day', className: 'half-day' };
-  return { label: 'Absent', className: 'absent' };
+  const halfDayThreshold = 5;
+
+  if (hours >= presentThreshold) {
+    return { label: 'Present', className: 'present', detail: `Worked ${hours.toFixed(2)} hrs (${presentThreshold} required)` };
+  }
+  if (dayOfWeek !== 6 && hours >= halfDayThreshold) {
+    return {
+      label: 'Half Day',
+      className: 'half-day',
+      detail: `Worked ${hours.toFixed(2)} hrs — needs ${presentThreshold} hrs for Present`
+    };
+  }
+  return {
+    label: 'Absent',
+    className: 'absent',
+    detail: `Worked ${hours.toFixed(2)} hrs — needs ${halfDayThreshold} hrs for Half Day, ${presentThreshold} for Present`
+  };
 };
 
 // Builds one row per calendar day from the later of (month start, date of joining) through

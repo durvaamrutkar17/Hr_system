@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { attendanceAPI, leaveAPI } from '../services/api';
+import { attendanceAPI, leaveAPI, flexHoursAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { buildMonthAttendanceRows, getDayStatus, summarizeMonthRows } from '../utils/attendanceCalendar';
 import useToast from '../hooks/useToast';
@@ -19,12 +19,21 @@ const Attendance = () => {
   const [correctionCheckOut, setCorrectionCheckOut] = useState('');
   const [correctionReason, setCorrectionReason] = useState('');
   const [submittingCorrection, setSubmittingCorrection] = useState(false);
+  const [flexHoursModalOpen, setFlexHoursModalOpen] = useState(false);
+  const [flexRequests, setFlexRequests] = useState([]);
+  const [flexBalance, setFlexBalance] = useState(0);
+  const [flexReqDate, setFlexReqDate] = useState(new Date().toISOString().split('T')[0]);
+  const [flexReqHours, setFlexReqHours] = useState('');
+  const [flexReqReason, setFlexReqReason] = useState('');
+  const [submittingFlexRequest, setSubmittingFlexRequest] = useState(false);
   const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchAttendance();
     fetchCorrections();
     fetchLeaves();
+    fetchFlexRequests();
+    fetchFlexBalance();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
@@ -59,6 +68,24 @@ const Attendance = () => {
       setLeaves(response.data.leaves || []);
     } catch (error) {
       console.error('Error fetching leaves:', error);
+    }
+  };
+
+  const fetchFlexRequests = async () => {
+    try {
+      const response = await flexHoursAPI.getFlexHoursRequests({ employeeId: user._id });
+      setFlexRequests(response.data.requests || []);
+    } catch (error) {
+      console.error('Error fetching flex hours requests:', error);
+    }
+  };
+
+  const fetchFlexBalance = async () => {
+    try {
+      const response = await flexHoursAPI.getFlexHoursBalance();
+      setFlexBalance(response.data.balance || 0);
+    } catch (error) {
+      console.error('Error fetching flex hours balance:', error);
     }
   };
 
@@ -103,6 +130,38 @@ const Attendance = () => {
     }
   };
 
+  const handleFlexRequestSubmit = async (e) => {
+    e.preventDefault();
+    if (!flexReqReason.trim()) {
+      showToast('error', 'Please enter a reason');
+      return;
+    }
+    const hours = Number(flexReqHours);
+    if (!(hours > 0)) {
+      showToast('error', 'Enter how many flex hours to apply');
+      return;
+    }
+
+    try {
+      setSubmittingFlexRequest(true);
+      await flexHoursAPI.requestFlexHours({
+        date: flexReqDate,
+        hoursRequested: hours,
+        reason: flexReqReason
+      });
+      showToast('success', 'Flex hours request submitted to manager');
+      setFlexReqHours('');
+      setFlexReqReason('');
+      setFlexReqDate(new Date().toISOString().split('T')[0]);
+      fetchFlexRequests();
+      fetchFlexBalance();
+    } catch (error) {
+      showToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setSubmittingFlexRequest(false);
+    }
+  };
+
   const rows = buildMonthAttendanceRows({
     dateOfJoining: user?.dateOfJoining,
     attendance,
@@ -113,7 +172,29 @@ const Attendance = () => {
 
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
 
-  const { presentCount, absentCount, leaveCount } = summarizeMonthRows(rows);
+  // Pending requests count toward the day's status right away and only fall back to the
+  // raw worked hours if a manager rejects them.
+  const appliedFlexByDate = flexRequests
+    .filter((r) => r.status !== 'rejected')
+    .reduce((acc, r) => {
+      const key = new Date(r.date).toDateString();
+      acc[key] = (acc[key] || 0) + r.hoursRequested;
+      return acc;
+    }, {});
+
+  const { presentCount, absentCount, leaveCount } = summarizeMonthRows(rows, appliedFlexByDate);
+
+  const flexBreakdown = attendance
+    .filter((r) => r.checkInTime && r.checkOutTime)
+    .map((r) => {
+      const dayCap = new Date(r.date).getDay() === 6 ? 5 : 9;
+      const flex = Math.max((r.hoursWorked || 0) - dayCap, 0);
+      return { date: r.date, flex };
+    })
+    .filter((d) => d.flex > 0)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const totalFlexHours = flexBreakdown.reduce((sum, d) => sum + d.flex, 0);
 
   return (
     <div className="attendance-page">
@@ -134,7 +215,50 @@ const Attendance = () => {
           <p className="stat-label">Leave</p>
           <h3 className="stat-value">{leaveCount}</h3>
         </div>
+        <div
+          className="stat-card flex-hours-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => setFlexHoursModalOpen(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFlexHoursModalOpen(true); }}
+        >
+          <p className="stat-label">Flex Hours</p>
+          <h3 className="stat-value">{totalFlexHours.toFixed(2)}</h3>
+        </div>
       </div>
+
+      {flexHoursModalOpen && (
+        <div className="flex-hours-modal-overlay" onClick={() => setFlexHoursModalOpen(false)}>
+          <div className="flex-hours-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-hours-modal-header">
+              <h2 className="flex-hours-modal-title">Flex Hours</h2>
+              <button
+                type="button"
+                className="flex-hours-modal-close"
+                onClick={() => setFlexHoursModalOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="flex-hours-modal-total">
+              <strong>{totalFlexHours.toFixed(2)} hrs</strong> extra this month
+            </p>
+            {flexBreakdown.length > 0 ? (
+              <div className="flex-hours-breakdown">
+                {flexBreakdown.map((d) => (
+                  <div key={d.date} className="flex-hours-row">
+                    <span>{new Date(d.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    <span>+{d.flex.toFixed(2)} hrs</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="flex-hours-empty">No extra hours logged this month</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="attendance-content">
         {/* Correction Request Section */}
@@ -204,6 +328,73 @@ const Attendance = () => {
                     </p>
                   </div>
                   <span className={`status-badge ${c.status}`}>{c.status}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Use Flex Hours Section */}
+        <div className="correction-section">
+          <h2 className="section-title">Use flex hours</h2>
+          <p className="flex-balance-note">
+            You have <strong>{flexBalance.toFixed(2)} hrs</strong> of banked flex hours available to apply.
+          </p>
+          <form onSubmit={handleFlexRequestSubmit} className="correction-form">
+            <div className="form-group">
+              <label>Date</label>
+              <input
+                type="date"
+                value={flexReqDate}
+                onChange={(e) => setFlexReqDate(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label>Hours to apply</label>
+              <input
+                type="number"
+                min="0.25"
+                step="0.25"
+                placeholder="e.g. 2"
+                value={flexReqHours}
+                onChange={(e) => setFlexReqHours(e.target.value)}
+              />
+            </div>
+            <div className="form-group reason-group">
+              <label>Reason</label>
+              <input
+                type="text"
+                placeholder="e.g. Leaving 2 hrs early for an appointment"
+                value={flexReqReason}
+                onChange={(e) => setFlexReqReason(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={submittingFlexRequest}
+            >
+              {submittingFlexRequest ? 'Submitting...' : 'Submit to manager'}
+            </button>
+          </form>
+        </div>
+
+        {/* Flex Hours Requests Status */}
+        {flexRequests.length > 0 && (
+          <div className="correction-requests-section">
+            <h2 className="section-title">Flex Hours Requests</h2>
+            <div className="correction-list">
+              {flexRequests.map((r) => (
+                <div key={r._id} className="correction-row">
+                  <div className="date-column">
+                    <p className="date-label">
+                      {new Date(r.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    <p className="correction-reason">{r.reason}</p>
+                    <p className="correction-reason">{r.hoursRequested.toFixed(2)} hrs applied</p>
+                  </div>
+                  <span className={`status-badge ${r.status}`}>{r.status}</span>
                 </div>
               ))}
             </div>
@@ -301,7 +492,8 @@ const Attendance = () => {
                     const dayCap = row.date.getDay() === 6 ? 5 : 9;
                     const workingHours = Math.min(hours, dayCap);
                     const flexHours = Math.max(hours - dayCap, 0);
-                    const status = getDayStatus(record, row.date);
+                    const appliedFlex = appliedFlexByDate[row.date.toDateString()] || 0;
+                    const status = getDayStatus(record, row.date, appliedFlex);
 
                     return (
                       <React.Fragment key={record._id}>
@@ -310,7 +502,7 @@ const Attendance = () => {
                             <p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                             <p className="work-mode">{record.workMode}</p>
                           </td>
-                          <td><span className={`status-badge ${status.className}`}>{status.label}</span></td>
+                          <td><span className={`status-badge ${status.className}`} title={status.detail}>{status.label}</span></td>
                           <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                           <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                           <td>{workingHours.toFixed(2)} hrs</td>

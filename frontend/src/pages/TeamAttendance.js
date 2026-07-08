@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { attendanceAPI, userAPI, leaveAPI } from '../services/api';
+import { attendanceAPI, userAPI, leaveAPI, flexHoursAPI } from '../services/api';
 import { buildMonthAttendanceRows, getDayStatus } from '../utils/attendanceCalendar';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 import './TeamAttendance.css';
 
 const TeamAttendance = () => {
@@ -10,14 +13,22 @@ const TeamAttendance = () => {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [attendance, setAttendance] = useState([]);
   const [leaves, setLeaves] = useState([]);
+  const [flexRequests, setFlexRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedDate, setSelectedDate] = useState('');
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [flexModalOpen, setFlexModalOpen] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState(null);
+  const [confirmState, setConfirmState] = useState(null);
+  const { message, showToast } = useToast();
 
   useEffect(() => {
     fetchEmployees();
+    if (new URLSearchParams(location.search).get('flexHours') === 'true') {
+      setFlexModalOpen(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -25,6 +36,7 @@ const TeamAttendance = () => {
     if (selectedEmployeeId) {
       fetchAttendance();
       fetchLeaves();
+      fetchFlexRequests();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEmployeeId, selectedMonth, selectedYear]);
@@ -35,8 +47,11 @@ const TeamAttendance = () => {
       const list = response.data.users || [];
       setEmployees(list);
 
-      const requestedId = new URLSearchParams(location.search).get('employeeId');
-      if (requestedId && list.some((emp) => emp._id === requestedId)) {
+      const params = new URLSearchParams(location.search);
+      const requestedId = params.get('employeeId');
+      if (params.get('flexHours') === 'true') {
+        setSelectedEmployeeId('all');
+      } else if (requestedId && list.some((emp) => emp._id === requestedId)) {
         setSelectedEmployeeId(requestedId);
       } else if (list.length > 0) {
         setSelectedEmployeeId(list[0]._id);
@@ -85,6 +100,38 @@ const TeamAttendance = () => {
     }
   };
 
+  const fetchFlexRequests = async () => {
+    try {
+      const params = isAllSelected ? {} : { employeeId: selectedEmployeeId };
+      const response = await flexHoursAPI.getFlexHoursRequests(params);
+      setFlexRequests(response.data.requests || []);
+    } catch (error) {
+      console.error('Error fetching flex hours requests:', error);
+    }
+  };
+
+  const handleFlexDecision = (id, status) => {
+    setConfirmState({
+      message: `${status === 'approved' ? 'Approve' : 'Reject'} this flex hours request?`,
+      confirmLabel: status === 'approved' ? 'Approve' : 'Reject',
+      onConfirm: () => performFlexDecision(id, status)
+    });
+  };
+
+  const performFlexDecision = async (id, status) => {
+    setConfirmState(null);
+    try {
+      setProcessingRequestId(id);
+      await flexHoursAPI.updateFlexHoursRequest(id, { status });
+      showToast('success', `Flex hours request ${status}`);
+      fetchFlexRequests();
+    } catch (error) {
+      showToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setProcessingRequestId(null);
+    }
+  };
+
   const toggleRowDetail = (key) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -96,6 +143,30 @@ const TeamAttendance = () => {
 
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const presentDays = attendance.filter((r) => r.checkInTime).length;
+
+  // Pending requests count toward the day's status right away and only fall back to the
+  // raw worked hours if a manager rejects them.
+  const appliedFlexByEmployeeDate = flexRequests
+    .filter((r) => r.status !== 'rejected')
+    .reduce((acc, r) => {
+      const empId = r.employeeId?._id || r.employeeId;
+      const key = `${empId}-${new Date(r.date).toDateString()}`;
+      acc[key] = (acc[key] || 0) + r.hoursRequested;
+      return acc;
+    }, {});
+
+  const flexRecords = attendance
+    .filter((r) => r.checkInTime && r.checkOutTime)
+    .map((r) => {
+      const dayCap = new Date(r.date).getDay() === 6 ? 5 : 9;
+      const flex = Math.max((r.hoursWorked || 0) - dayCap, 0);
+      return { ...r, flex };
+    })
+    .filter((r) => r.flex > 0)
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const totalFlexHours = flexRecords.reduce((sum, r) => sum + r.flex, 0);
+  const pendingFlexCount = flexRequests.filter((r) => r.status === 'pending').length;
   const selectedEmployee = employees.find((e) => e._id === selectedEmployeeId);
 
   const employeesToShow = isAllSelected ? employees : selectedEmployee ? [selectedEmployee] : [];
@@ -130,7 +201,15 @@ const TeamAttendance = () => {
 
   return (
     <div className="team-attendance-page">
-      <h1 className="page-title">Team Attendance</h1>
+      <div className="team-attendance-header">
+        <h1 className="page-title">Team Attendance</h1>
+        <button type="button" className="flex-hours-open-btn" onClick={() => setFlexModalOpen(true)}>
+          Flex Hours
+          {pendingFlexCount > 0 && <span className="flex-hours-pending-badge">{pendingFlexCount}</span>}
+        </button>
+      </div>
+
+      <Toast message={message} />
 
       <div className="picker-section">
         <div className="form-group">
@@ -172,6 +251,106 @@ const TeamAttendance = () => {
           )}
         </div>
       </div>
+
+      {flexModalOpen && (
+        <div className="flex-hours-modal-overlay" onClick={() => setFlexModalOpen(false)}>
+          <div className="flex-hours-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="flex-hours-modal-header">
+              <h2 className="flex-hours-modal-title">Flex Hours</h2>
+              <button
+                type="button"
+                className="flex-hours-modal-close"
+                onClick={() => setFlexModalOpen(false)}
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="flex-hours-modal-total">
+              <strong>{totalFlexHours.toFixed(2)} hrs</strong> extra logged
+              {isAllSelected ? ' by the team' : selectedEmployee ? ` by ${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
+              {' '}this month
+            </p>
+            {loading ? (
+              <p className="loading-text">Loading...</p>
+            ) : flexRecords.length > 0 ? (
+              <div className="table-wrapper">
+                <table className="flex-hours-table">
+                  <thead>
+                    <tr>
+                      <th>Employee</th>
+                      <th>Date</th>
+                      <th>Check-in</th>
+                      <th>Check-out</th>
+                      <th>Flex Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flexRecords.map((r) => (
+                      <tr key={r._id}>
+                        <td>{r.employeeId?.firstName} {r.employeeId?.lastName}</td>
+                        <td>{new Date(r.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                        <td>{new Date(r.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+                        <td>{new Date(r.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}</td>
+                        <td>+{r.flex.toFixed(2)} hrs</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="no-records">No extra hours logged this month</p>
+            )}
+
+            <h3 className="flex-hours-modal-subtitle">Requests</h3>
+            {flexRequests.length > 0 ? (
+              <div className="flex-requests-list">
+                {flexRequests.map((r) => (
+                  <div key={r._id} className="flex-request-row">
+                    <div className="flex-request-main">
+                      <p className="flex-request-name">
+                        {r.employeeId?.firstName} {r.employeeId?.lastName}
+                      </p>
+                      <p className="flex-request-meta">
+                        {new Date(r.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {' · '}
+                        {r.hoursRequested.toFixed(2)} hrs applied
+                      </p>
+                      <p className="flex-request-reason">{r.reason}</p>
+                    </div>
+                    {r.status === 'pending' ? (
+                      <div className="flex-request-actions">
+                        <button
+                          type="button"
+                          className="approve-btn"
+                          disabled={processingRequestId === r._id}
+                          onClick={() => handleFlexDecision(r._id, 'approved')}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          type="button"
+                          className="reject-btn"
+                          disabled={processingRequestId === r._id}
+                          onClick={() => handleFlexDecision(r._id, 'rejected')}
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span className={`status-badge ${r.status}`}>{r.status}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="no-records">No flex hours requests
+                {isAllSelected ? '' : selectedEmployee ? ` from ${selectedEmployee.firstName} ${selectedEmployee.lastName}` : ''}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="history-section">
         <div className="history-header">
@@ -286,7 +465,8 @@ const TeamAttendance = () => {
                   const dayCap = row.date.getDay() === 6 ? 5 : 9;
                   const workingHours = Math.min(hours, dayCap);
                   const flexHours = Math.max(hours - dayCap, 0);
-                  const status = getDayStatus(record, row.date);
+                  const appliedFlex = appliedFlexByEmployeeDate[`${row.employee._id}-${row.date.toDateString()}`] || 0;
+                  const status = getDayStatus(record, row.date, appliedFlex);
                   const hasSessions = record.sessions && record.sessions.length > 1;
                   const isExpanded = expandedRows.has(record._id);
 
@@ -353,6 +533,14 @@ const TeamAttendance = () => {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message}
+        confirmLabel={confirmState?.confirmLabel}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
+      />
     </div>
   );
 };

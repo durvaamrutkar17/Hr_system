@@ -32,6 +32,7 @@ app.use('/api/assets', require('./routes/assetRoutes'));
 app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/resignations', require('./routes/resignationRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/flex-hours', require('./routes/flexHoursRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -2,7 +2,10 @@ import { computeLeaveDayStatuses } from './leavePolicy';
 
 // Saturdays are a half-day (5 hrs = full present, no separate half-day tier).
 // Sundays are a company holiday when there's no actual check-in that day.
-export const getDayStatus = (record, date) => {
+// `appliedFlex` is hours banked from past days and applied (via an approved-or-pending
+// flex hours request) to cover a shortfall on this day, so it's treated as present even
+// though the raw checked-in time falls short — it reverts if the request is rejected.
+export const getDayStatus = (record, date, appliedFlex = 0) => {
   const dayOfWeek = new Date(date).getDay();
   const checkedIn = !!record?.checkInTime;
 
@@ -17,24 +20,30 @@ export const getDayStatus = (record, date) => {
     return { label: 'Present', className: 'present' };
   }
 
-  const hours = record.hoursWorked || 0;
+  const rawHours = record.hoursWorked || 0;
+  const hours = rawHours + appliedFlex;
   const presentThreshold = dayOfWeek === 6 ? 5 : 9;
   const halfDayThreshold = 5;
+  const flexNote = appliedFlex > 0 ? ` + ${appliedFlex.toFixed(2)} flex hrs applied` : '';
 
   if (hours >= presentThreshold) {
-    return { label: 'Present', className: 'present', detail: `Worked ${hours.toFixed(2)} hrs (${presentThreshold} required)` };
+    return {
+      label: 'Present',
+      className: 'present',
+      detail: `Worked ${rawHours.toFixed(2)} hrs${flexNote} (${presentThreshold} required)`
+    };
   }
   if (dayOfWeek !== 6 && hours >= halfDayThreshold) {
     return {
       label: 'Half Day',
       className: 'half-day',
-      detail: `Worked ${hours.toFixed(2)} hrs — needs ${presentThreshold} hrs for Present`
+      detail: `Worked ${rawHours.toFixed(2)} hrs${flexNote} — needs ${presentThreshold} hrs for Present`
     };
   }
   return {
     label: 'Absent',
     className: 'absent',
-    detail: `Worked ${hours.toFixed(2)} hrs — needs ${halfDayThreshold} hrs for Half Day, ${presentThreshold} for Present`
+    detail: `Worked ${rawHours.toFixed(2)} hrs${flexNote} — needs ${halfDayThreshold} hrs for Half Day, ${presentThreshold} for Present`
   };
 };
 
@@ -77,13 +86,16 @@ export const buildMonthAttendanceRows = ({ dateOfJoining, attendance, leaves, mo
 };
 
 // Rolls a set of buildMonthAttendanceRows() rows up into Present/Absent/Leave counts.
-export const summarizeMonthRows = (rows) => {
+// `appliedFlexByDate` (optional) maps a date's toDateString() to hours applied that day.
+export const summarizeMonthRows = (rows, appliedFlexByDate = {}) => {
+  const flexFor = (date) => appliedFlexByDate[new Date(date).toDateString()] || 0;
+
   const presentCount = rows.filter(
-    (r) => r.kind === 'attendance' && getDayStatus(r.record, r.date).className !== 'absent'
+    (r) => r.kind === 'attendance' && getDayStatus(r.record, r.date, flexFor(r.date)).className !== 'absent'
   ).length;
   const unpaidLeaveDays = rows.filter((r) => r.kind === 'leave' && !r.day.paid).length;
   const absentCount = rows.filter(
-    (r) => r.kind === 'absent' || (r.kind === 'attendance' && getDayStatus(r.record, r.date).className === 'absent')
+    (r) => r.kind === 'absent' || (r.kind === 'attendance' && getDayStatus(r.record, r.date, flexFor(r.date)).className === 'absent')
   ).length + unpaidLeaveDays;
   const leaveCount = rows.filter((r) => r.kind === 'leave' && r.day.paid).length;
 

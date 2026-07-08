@@ -27,6 +27,7 @@ const ManagerDashboard = () => {
   const [pendingCorrections, setPendingCorrections] = useState(0);
   const [pendingClaims, setPendingClaims] = useState(0);
   const [pendingResignations, setPendingResignations] = useState(0);
+  const [teamFlexHours, setTeamFlexHours] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,6 +57,14 @@ const ManagerDashboard = () => {
         (record) => new Date(record.date).toDateString() === today.toDateString()
       );
       setTodayAttendance(todayRecords);
+
+      const flexTotal = allAttendance
+        .filter((record) => record.checkInTime && record.checkOutTime)
+        .reduce((sum, record) => {
+          const dayCap = new Date(record.date).getDay() === 6 ? 5 : 9;
+          return sum + Math.max((record.hoursWorked || 0) - dayCap, 0);
+        }, 0);
+      setTeamFlexHours(flexTotal);
 
       const leaves = leavesRes.data.leaves || [];
       setPendingLeaves(leaves.filter((l) => l.status === 'pending').length);
@@ -118,6 +127,11 @@ const ManagerDashboard = () => {
               <div className="stat-icon">💰</div>
               <h3>{pendingClaims}</h3>
               <p>Claims pending</p>
+            </div>
+            <div className="stat-card" onClick={() => navigate('/team-attendance?flexHours=true')}>
+              <div className="stat-icon">⏱️</div>
+              <h3>{teamFlexHours.toFixed(2)}</h3>
+              <p>Flex hours</p>
             </div>
             <div className="stat-card" onClick={() => navigate('/resignation-approvals')}>
               <div className="stat-icon">🚪</div>

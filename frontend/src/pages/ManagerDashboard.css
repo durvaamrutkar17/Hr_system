@@ -24,18 +24,20 @@
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 14px;
   margin-bottom: 25px;
+  overflow-x: auto;
 }
 
 .stat-card {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 16px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   transition: all 0.2s ease;
+  min-width: 0;
 }
 
 .stat-card:hover {
@@ -44,14 +46,15 @@
 }
 
 .stat-icon {
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 20px;
+  margin-bottom: 8px;
 }
 
 .stat-card h3 {
   margin: 0;
   color: #1b4d4d;
-  font-size: 26px;
+  font-size: 22px;
+  white-space: nowrap;
 }
 
 .stat-card p {
@@ -694,6 +697,11 @@
 @media (max-width: 768px) {
   .manager-dashboard-page {
     padding: 15px 20px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, minmax(150px, 1fr));
+    overflow-x: auto;
   }
 
   .modal-row {

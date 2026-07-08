@@ -116,4 +116,12 @@ export const assetAPI = {
   updateAsset: (id, updateData) => api.put(`/assets/${id}`, updateData)
 };
 
+// Flex hours API calls
+export const flexHoursAPI = {
+  requestFlexHours: (data) => api.post('/flex-hours', data),
+  getFlexHoursRequests: (params) => api.get('/flex-hours', { params }),
+  getFlexHoursBalance: () => api.get('/flex-hours/balance'),
+  updateFlexHoursRequest: (id, updateData) => api.put(`/flex-hours/${id}`, updateData)
+};
+
 export default api;

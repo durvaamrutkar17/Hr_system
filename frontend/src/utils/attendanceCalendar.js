@@ -105,3 +105,34 @@ export const summarizeMonthRows = (rows, appliedFlexByDate = {}) => {
 
   return { presentCount, absentCount, leaveCount };
 };
+
+// Computes Loss-of-Pay days for payroll from a set of buildMonthAttendanceRows() rows.
+// A Half Day only costs half a day's pay; a full Absent (no check-in, or an unpaid
+// leave day) costs a full day's pay. `breakdown` lists exactly which dates contributed
+// and why, so the deduction can be explained to both the manager and the employee.
+export const computeLopBreakdown = (rows, appliedFlexByDate = {}) => {
+  const flexFor = (date) => appliedFlexByDate[new Date(date).toDateString()] || 0;
+  const breakdown = [];
+
+  rows.forEach((row) => {
+    if (row.kind === 'absent') {
+      breakdown.push({ date: row.date, type: 'absent', days: 1 });
+      return;
+    }
+    if (row.kind === 'leave' && !row.day.paid) {
+      breakdown.push({ date: row.date, type: 'unpaid-leave', days: 1 });
+      return;
+    }
+    if (row.kind === 'attendance') {
+      const status = getDayStatus(row.record, row.date, flexFor(row.date));
+      if (status.className === 'absent') {
+        breakdown.push({ date: row.date, type: 'absent', days: 1 });
+      } else if (status.className === 'half-day') {
+        breakdown.push({ date: row.date, type: 'half-day', days: 0.5 });
+      }
+    }
+  });
+
+  const lopDays = breakdown.reduce((sum, b) => sum + b.days, 0);
+  return { lopDays, breakdown };
+};

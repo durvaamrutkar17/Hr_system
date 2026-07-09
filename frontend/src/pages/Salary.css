@@ -116,6 +116,43 @@
   color: #c0392b;
 }
 
+.lop-why-link {
+  margin-left: 8px;
+  background: none;
+  border: none;
+  color: #1b4d4d;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.lop-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 14px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.lop-breakdown-row {
+  display: grid;
+  grid-template-columns: 110px 90px auto;
+  gap: 10px;
+  font-size: 13px;
+  color: #666;
+}
+
+.lop-breakdown-row span:last-child {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.lop-breakdown-row span.claim-amount {
+  color: #1b7a3d;
+}
+
 /* Salary history table */
 .history-card {
   background: white;
@@ -181,6 +218,22 @@
 .status-badge.processing {
   background-color: #fff3cd;
   color: #856404;
+}
+
+.status-badge.estimate {
+  background-color: #e2e3e5;
+  color: #41464b;
+  white-space: nowrap;
+}
+
+.estimate-card {
+  border: 1px dashed #ccc;
+}
+
+.estimate-note {
+  margin: 8px 0 0 0;
+  color: #888;
+  font-size: 12px;
 }
 
 .history-download-btn {

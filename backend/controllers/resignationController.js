@@ -71,17 +71,21 @@ exports.updateResignation = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Resignation not found' });
     }
 
+    // Merge with the existing clearance rather than trusting the request body as
+    // the full picture — a caller that only toggles one flag must not blow away
+    // the other two that were already cleared.
+    const mergedClearance = {
+      it: existing.clearance?.it,
+      finance: existing.clearance?.finance,
+      hr: existing.clearance?.hr,
+      ...(clearance || {})
+    };
+
     if (status === 'resigned') {
       if (existing.status !== 'approved') {
         return res.status(400).json({ success: false, message: 'Only an approved resignation can be marked as resigned' });
       }
 
-      const mergedClearance = {
-        it: existing.clearance?.it,
-        finance: existing.clearance?.finance,
-        hr: existing.clearance?.hr,
-        ...(clearance || {})
-      };
       if (!mergedClearance.it || !mergedClearance.finance || !mergedClearance.hr) {
         return res.status(400).json({ success: false, message: 'Complete the IT, Finance and HR clearance checklist before marking as resigned' });
       }
@@ -102,7 +106,7 @@ exports.updateResignation = async (req, res) => {
       update.approvalDate = Date.now();
     }
     if (approvalRemarks !== undefined) update.approvalRemarks = approvalRemarks;
-    if (clearance) update.clearance = clearance;
+    if (clearance) update.clearance = mergedClearance;
 
     const resignation = await Resignation.findByIdAndUpdate(
       req.params.id,

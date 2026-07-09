@@ -113,6 +113,11 @@
   background-color: #fafafa;
 }
 
+.payroll-table tbody tr.highlighted-row {
+  background-color: #fdf6e3;
+  box-shadow: inset 3px 0 0 #d4af37;
+}
+
 .payroll-table td.negative {
   color: #c0392b;
 }
@@ -122,12 +127,22 @@
   color: #1b4d4d;
 }
 
-.emp-name {
+.emp-name-link {
+  display: block;
   margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
   font-weight: 700;
-  color: #1b1b1b;
+  color: #1b4d4d;
   font-size: 15px;
   white-space: normal;
+  text-align: left;
+  cursor: pointer;
+}
+
+.emp-name-link:hover {
+  text-decoration: underline;
 }
 
 .emp-role {
@@ -173,6 +188,37 @@
 
 .lop-input {
   -moz-appearance: textfield;
+}
+
+.lop-summary-note {
+  margin: 6px 0 0 0;
+  color: #888;
+  font-size: 11px;
+  white-space: normal;
+  max-width: 90px;
+}
+
+.lop-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lop-breakdown-row {
+  display: grid;
+  grid-template-columns: 140px 120px auto;
+  gap: 12px;
+  font-size: 13px;
+  color: #555;
+}
+
+.lop-breakdown-row span:last-child {
+  color: #c0392b;
+  font-weight: 600;
+}
+
+.lop-breakdown-row span.claim-amount {
+  color: #1b7a3d;
 }
 
 .status-cell {
@@ -298,49 +344,37 @@
   cursor: not-allowed;
 }
 
-/* Salary structure edit row */
+/* Salary structure / breakdown expand row */
 .structure-row td {
   background-color: #f7f6f1;
   white-space: normal;
 }
 
-.structure-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 14px;
+.employee-salary-header {
+  margin-bottom: 20px;
 }
 
-.structure-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.structure-group label {
-  margin-bottom: 6px;
-  color: #555;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.structure-group input {
-  padding: 8px 10px;
+.breakdown-input {
+  width: 110px;
+  padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   font-size: 14px;
+  text-align: right;
 }
 
-.structure-group input:focus {
+.breakdown-input:focus {
   outline: none;
   border-color: #1b4d4d;
 }
 
-.structure-group input[type="number"]::-webkit-outer-spin-button,
-.structure-group input[type="number"]::-webkit-inner-spin-button {
+.breakdown-input::-webkit-outer-spin-button,
+.breakdown-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.structure-group input[type="number"] {
+.breakdown-input {
   -moz-appearance: textfield;
 }
 

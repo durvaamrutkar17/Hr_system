@@ -1,11 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userAPI, attendanceAPI, leaveAPI, flexHoursAPI, expenseAPI, payslipAPI, FILE_BASE_URL } from '../services/api';
-import { buildMonthAttendanceRows, summarizeMonthRows } from '../utils/attendanceCalendar';
+import { buildMonthAttendanceRows, computeLopBreakdown } from '../utils/attendanceCalendar';
+import { computeSalaryFigures } from '../utils/salaryCalc';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
+import './Salary.css';
 import './Payroll.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -20,6 +23,20 @@ const sanitizeIntInput = (value) => {
   if (value === '') return '';
   const num = parseInt(value, 10);
   return Number.isNaN(num) ? '' : String(Math.max(0, num));
+};
+
+// LOP is tracked in half-day increments (a Half Day costs 0.5, an Absent costs 1).
+const sanitizeLopInput = (value) => {
+  if (value === '') return '';
+  const num = parseFloat(value);
+  if (Number.isNaN(num)) return '';
+  return String(Math.round(Math.max(0, num) * 2) / 2);
+};
+
+const LOP_TYPE_LABELS = {
+  absent: 'Absent',
+  'half-day': 'Half Day',
+  'unpaid-leave': 'Unpaid leave'
 };
 
 const idOf = (refOrId) => refOrId?._id || refOrId;
@@ -38,27 +55,21 @@ const CLAIM_TABS = [
   { key: 'all', label: 'All', match: () => true }
 ];
 
-const computeRow = (row) => {
-  const basic = toNumber(row.basic);
-  const hra = toNumber(row.hra);
-  const specialAllowance = toNumber(row.specialAllowance);
-  const professionalTax = toNumber(row.professionalTax);
-  const tds = toNumber(row.tds);
-  const lopDays = toNumber(row.lopDays);
-  const reimbursement = toNumber(row.reimbursement);
+const computeRow = (row) => computeSalaryFigures({
+  basic: toNumber(row.basic),
+  hra: toNumber(row.hra),
+  specialAllowance: toNumber(row.specialAllowance),
+  professionalTax: toNumber(row.professionalTax),
+  tds: toNumber(row.tds),
+  lopDays: toNumber(row.lopDays),
+  reimbursement: toNumber(row.reimbursement)
+});
 
-  const gross = basic + hra + specialAllowance;
-  const pf = Math.round(basic * 0.12);
-  const lopAmount = lopDays > 0 ? Math.round((basic / 30) * lopDays) : 0;
-  const totalDeductions = pf + professionalTax + tds + lopAmount;
-  const netPay = gross - totalDeductions + reimbursement;
-  return { gross, pf, lopAmount, totalDeductions, netPay };
-};
-
-// Unpaid-absence days for the month, computed the same way the employee's own
-// attendance page and the manager's Team Attendance page do — so LOP always
-// agrees with what an employee sees as "Absent" there, flex hours included.
-const computeAutoLopDays = (emp, attendance, leaves, flexRequests, month, year) => {
+// LOP days + a per-date breakdown, computed the same way the employee's own attendance
+// page and the manager's Team Attendance page classify each day — so LOP always agrees
+// with what an employee sees there (Half Day costs 0.5 day, Absent costs a full day),
+// flex hours included.
+const computeLopInfo = (emp, attendance, leaves, flexRequests, month, year) => {
   const empId = emp._id;
   const empAttendance = attendance.filter((r) => idOf(r.employeeId) === empId);
   const empLeaves = leaves.filter((l) => idOf(l.employeeId) === empId);
@@ -79,18 +90,17 @@ const computeAutoLopDays = (emp, attendance, leaves, flexRequests, month, year) 
     year
   });
 
-  return summarizeMonthRows(rows, appliedFlexByDate).absentCount;
+  return computeLopBreakdown(rows, appliedFlexByDate);
 };
 
-const getReimbursementFor = (expenses, empId, month, year) =>
+const getReimbursementClaimsFor = (expenses, empId, month, year) =>
   expenses
     .filter((e) => idOf(e.employeeId) === empId)
     .filter((e) => e.status === 'approved' || e.status === 'reimbursed')
     .filter((e) => {
       const d = new Date(e.date);
       return d.getMonth() + 1 === month && d.getFullYear() === year;
-    })
-    .reduce((sum, e) => sum + e.amount, 0);
+    });
 
 const getStatusInfo = (payslip) => {
   if (!payslip) return { label: 'Not processed', className: 'not-processed' };
@@ -100,6 +110,9 @@ const getStatusInfo = (payslip) => {
 
 const Payroll = () => {
   const { user } = useAuth();
+  const location = useLocation();
+  const highlightedEmployeeId = new URLSearchParams(location.search).get('employeeId');
+  const highlightedRowRef = useRef(null);
   const [employees, setEmployees] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [payslips, setPayslips] = useState([]);
@@ -118,7 +131,9 @@ const Payroll = () => {
     const nextRows = {};
     employeeList.forEach((emp) => {
       const payslip = payslipList.find((p) => idOf(p.employeeId) === emp._id) || null;
-      const reimbursement = getReimbursementFor(expenseList, emp._id, selectedMonth, selectedYear);
+      const reimbursementClaims = getReimbursementClaimsFor(expenseList, emp._id, selectedMonth, selectedYear);
+      const reimbursement = reimbursementClaims.reduce((sum, e) => sum + e.amount, 0);
+      const lopInfo = computeLopInfo(emp, attendanceList, leaveList, flexList, selectedMonth, selectedYear);
 
       if (payslip) {
         nextRows[emp._id] = {
@@ -128,20 +143,27 @@ const Payroll = () => {
           professionalTax: payslip.deductions.professionalTax,
           tds: payslip.deductions.tds,
           lopDays: payslip.deductions.lopDays,
+          lopBreakdown: lopInfo.breakdown,
           reimbursement,
-          expanded: false
+          reimbursementClaims,
+          expanded: false,
+          lopExpanded: false,
+          reimbursementExpanded: false
         };
       } else {
-        const autoLopDays = computeAutoLopDays(emp, attendanceList, leaveList, flexList, selectedMonth, selectedYear);
         nextRows[emp._id] = {
           basic: emp.salaryStructure?.basic || 0,
           hra: emp.salaryStructure?.hra || 0,
           specialAllowance: emp.salaryStructure?.specialAllowance || 0,
           professionalTax: emp.salaryStructure?.professionalTax || 0,
           tds: emp.salaryStructure?.tds || 0,
-          lopDays: autoLopDays,
+          lopDays: lopInfo.lopDays,
+          lopBreakdown: lopInfo.breakdown,
           reimbursement,
-          expanded: false
+          reimbursementClaims,
+          expanded: false,
+          lopExpanded: false,
+          reimbursementExpanded: false
         };
       }
     });
@@ -182,6 +204,23 @@ const Payroll = () => {
     fetchAll();
   }, [fetchAll]);
 
+  const hasAutoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightedEmployeeId || hasAutoExpandedRef.current || !rows[highlightedEmployeeId]) return;
+    hasAutoExpandedRef.current = true;
+    setRows((prev) => ({
+      ...prev,
+      [highlightedEmployeeId]: { ...prev[highlightedEmployeeId], expanded: true }
+    }));
+  }, [rows, highlightedEmployeeId]);
+
+  useEffect(() => {
+    if (highlightedEmployeeId && rows[highlightedEmployeeId]?.expanded && highlightedRowRef.current) {
+      highlightedRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows[highlightedEmployeeId]?.expanded]);
+
   const updateRow = (empId, field, value) => {
     setRows((prev) => ({
       ...prev,
@@ -193,6 +232,20 @@ const Payroll = () => {
     setRows((prev) => ({
       ...prev,
       [empId]: { ...prev[empId], expanded: !prev[empId].expanded }
+    }));
+  };
+
+  const toggleLopBreakdown = (empId) => {
+    setRows((prev) => ({
+      ...prev,
+      [empId]: { ...prev[empId], lopExpanded: !prev[empId].lopExpanded }
+    }));
+  };
+
+  const toggleReimbursementBreakdown = (empId) => {
+    setRows((prev) => ({
+      ...prev,
+      [empId]: { ...prev[empId], reimbursementExpanded: !prev[empId].reimbursementExpanded }
     }));
   };
 
@@ -284,7 +337,7 @@ const Payroll = () => {
       employeeName: `${emp.firstName} ${emp.lastName}`,
       designation: emp.designation,
       employeeIdStr: emp._id.slice(-6).toUpperCase(),
-      reimbursement: getReimbursementFor(expenses, emp._id, payslip.month, payslip.year)
+      reimbursement: rows[emp._id]?.reimbursement || 0
     });
   };
 
@@ -364,16 +417,18 @@ const Payroll = () => {
                   const status = getStatusInfo(payslip);
                   const isRowBusy = rowActionId === emp._id;
 
+                  const isHighlighted = emp._id === highlightedEmployeeId;
+
                   return (
                     <React.Fragment key={emp._id}>
-                      <tr>
+                      <tr ref={isHighlighted ? highlightedRowRef : undefined} className={isHighlighted ? 'highlighted-row' : ''}>
                         <td>
-                          <p className="emp-name">
+                          <button type="button" className="emp-name-link" onClick={() => toggleExpanded(emp._id)}>
                             {emp._id === user._id ? `You (${emp.firstName} ${emp.lastName})` : `${emp.firstName} ${emp.lastName}`}
-                          </p>
+                          </button>
                           <p className="emp-role">{emp.designation}</p>
                           <button type="button" className="edit-toggle-btn" onClick={() => toggleExpanded(emp._id)}>
-                            {row.expanded ? 'Hide salary structure' : 'Edit salary structure'}
+                            {row.expanded ? 'Hide salary structure' : 'View salary structure'}
                           </button>
                         </td>
                         <td>{formatCurrency(computed.gross)}</td>
@@ -384,10 +439,19 @@ const Payroll = () => {
                             type="number"
                             min="0"
                             max="31"
+                            step="0.5"
                             className="lop-input"
                             value={row.lopDays}
-                            onChange={(e) => updateRow(emp._id, 'lopDays', sanitizeIntInput(e.target.value))}
+                            onChange={(e) => updateRow(emp._id, 'lopDays', sanitizeLopInput(e.target.value))}
                           />
+                          {row.lopBreakdown.length > 0 && (
+                            <p className="lop-summary-note">
+                              {['half-day', 'absent', 'unpaid-leave'].map((type) => {
+                                const count = row.lopBreakdown.filter((b) => b.type === type).length;
+                                return count > 0 ? `${count} ${LOP_TYPE_LABELS[type]}` : null;
+                              }).filter(Boolean).join(', ')}
+                            </p>
+                          )}
                         </td>
                         <td className="net-cell">{formatCurrency(computed.netPay)}</td>
                         <td>
@@ -437,51 +501,138 @@ const Payroll = () => {
                       {row.expanded && (
                         <tr className="structure-row">
                           <td colSpan={8}>
-                            <div className="structure-form">
-                              <div className="structure-group">
-                                <label>Basic</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.basic}
-                                  onChange={(e) => updateRow(emp._id, 'basic', sanitizeIntInput(e.target.value))}
-                                />
+                            <div className="net-pay-card employee-salary-header">
+                              <div>
+                                <p className="net-pay-label">Net pay · {MONTH_NAMES[selectedMonth - 1]} {selectedYear}</p>
+                                <h2 className="net-pay-value">{formatCurrency(computed.netPay)}</h2>
                               </div>
-                              <div className="structure-group">
-                                <label>HRA</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.hra}
-                                  onChange={(e) => updateRow(emp._id, 'hra', sanitizeIntInput(e.target.value))}
-                                />
+                              <div>
+                                <p className="net-pay-label">Status</p>
+                                <span className={`status-badge ${status.className}`}>{status.label}</span>
                               </div>
-                              <div className="structure-group">
-                                <label>Special Allowance</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.specialAllowance}
-                                  onChange={(e) => updateRow(emp._id, 'specialAllowance', sanitizeIntInput(e.target.value))}
-                                />
+                            </div>
+
+                            <div className="breakdown-grid">
+                              <div className="breakdown-card">
+                                <h3 className="breakdown-title">Earnings</h3>
+                                <div className="breakdown-row">
+                                  <span>Basic</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="breakdown-input"
+                                    value={row.basic}
+                                    onChange={(e) => updateRow(emp._id, 'basic', sanitizeIntInput(e.target.value))}
+                                  />
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>HRA</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="breakdown-input"
+                                    value={row.hra}
+                                    onChange={(e) => updateRow(emp._id, 'hra', sanitizeIntInput(e.target.value))}
+                                  />
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>Special Allowance</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="breakdown-input"
+                                    value={row.specialAllowance}
+                                    onChange={(e) => updateRow(emp._id, 'specialAllowance', sanitizeIntInput(e.target.value))}
+                                  />
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>
+                                    Reimbursement
+                                    {row.reimbursementClaims.length > 0 && (
+                                      <button
+                                        type="button"
+                                        className="lop-why-link"
+                                        onClick={() => toggleReimbursementBreakdown(emp._id)}
+                                      >
+                                        {row.reimbursementExpanded ? 'Hide claims' : 'Why?'}
+                                      </button>
+                                    )}
+                                  </span>
+                                  <span>{formatCurrency(row.reimbursement)}</span>
+                                </div>
+                                {row.reimbursementExpanded && row.reimbursementClaims.length > 0 && (
+                                  <div className="lop-breakdown">
+                                    {row.reimbursementClaims.map((claim) => (
+                                      <div key={claim._id} className="lop-breakdown-row">
+                                        <span>{new Date(claim.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        <span>{claim.expenseType}</span>
+                                        <span className="claim-amount">{formatCurrency(claim.amount)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="breakdown-row total-row">
+                                  <span>Gross Earnings</span>
+                                  <span>{formatCurrency(computed.grossEarnings)}</span>
+                                </div>
                               </div>
-                              <div className="structure-group">
-                                <label>Professional Tax</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.professionalTax}
-                                  onChange={(e) => updateRow(emp._id, 'professionalTax', sanitizeIntInput(e.target.value))}
-                                />
-                              </div>
-                              <div className="structure-group">
-                                <label>TDS</label>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  value={row.tds}
-                                  onChange={(e) => updateRow(emp._id, 'tds', sanitizeIntInput(e.target.value))}
-                                />
+
+                              <div className="breakdown-card">
+                                <h3 className="breakdown-title">Deductions</h3>
+                                <div className="breakdown-row">
+                                  <span>PF (12% of basic)</span>
+                                  <span className="negative">-{formatCurrency(computed.pf)}</span>
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>Professional Tax</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="breakdown-input"
+                                    value={row.professionalTax}
+                                    onChange={(e) => updateRow(emp._id, 'professionalTax', sanitizeIntInput(e.target.value))}
+                                  />
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>TDS</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    className="breakdown-input"
+                                    value={row.tds}
+                                    onChange={(e) => updateRow(emp._id, 'tds', sanitizeIntInput(e.target.value))}
+                                  />
+                                </div>
+                                <div className="breakdown-row">
+                                  <span>
+                                    LOP ({row.lopDays} days)
+                                    {row.lopBreakdown.length > 0 && (
+                                      <button
+                                        type="button"
+                                        className="lop-why-link"
+                                        onClick={() => toggleLopBreakdown(emp._id)}
+                                      >
+                                        {row.lopExpanded ? 'Hide reason' : 'Why?'}
+                                      </button>
+                                    )}
+                                  </span>
+                                  <span className="negative">-{formatCurrency(computed.lopAmount)}</span>
+                                </div>
+                                {row.lopExpanded && row.lopBreakdown.length > 0 && (
+                                  <div className="lop-breakdown">
+                                    {row.lopBreakdown.map((b) => (
+                                      <div key={b.date.toISOString()} className="lop-breakdown-row">
+                                        <span>{b.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                        <span>{LOP_TYPE_LABELS[b.type] || b.type}</span>
+                                        <span>-{b.days} day{b.days !== 1 ? 's' : ''}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="breakdown-row total-row">
+                                  <span>Total deductions</span>
+                                  <span className="negative">-{formatCurrency(computed.totalDeductions)}</span>
+                                </div>
                               </div>
                             </div>
                           </td>

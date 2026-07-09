@@ -15,6 +15,7 @@ import {
 import { buildMonthAttendanceRows, summarizeMonthRows, getDayStatus } from '../utils/attendanceCalendar';
 import './ManagerDashboard.css';
 import './Attendance.css';
+import './Salary.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -518,7 +519,12 @@ const EmployeeProfile = () => {
       </div>
 
       <div className="profile-section-card">
-        <h3 className="detail-section-title">Salary</h3>
+        <div className="detail-section-header">
+          <h3 className="detail-section-title">Salary</h3>
+          <button type="button" className="add-field-btn" onClick={() => navigate(`/payroll?employeeId=${employeeId}`)}>
+            View full calculation in Payroll →
+          </button>
+        </div>
         {loadingDetail ? (
           <p className="loading-text">Loading...</p>
         ) : latestPayslip ? (

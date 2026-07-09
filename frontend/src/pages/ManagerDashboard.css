@@ -414,11 +414,6 @@
   margin-bottom: 20px;
 }
 
-/* Employee detail modal */
-.detail-modal-card {
-  max-width: 500px;
-}
-
 .detail-header {
   display: flex;
   align-items: center;

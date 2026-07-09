@@ -129,6 +129,30 @@
   font-size: 13px;
 }
 
+.claim-receipts {
+  margin: 6px 0 0 0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.claim-receipts a {
+  color: #1b4d4d;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.claim-receipts a:hover {
+  text-decoration: underline;
+}
+
+.selected-files-note {
+  margin: 8px 0 0 0;
+  color: #888;
+  font-size: 13px;
+}
+
 .status-badge {
   padding: 4px 10px;
   border-radius: 20px;

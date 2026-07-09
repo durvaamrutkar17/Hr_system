@@ -152,6 +152,11 @@
   color: #555;
 }
 
+.status-badge.resigned {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
 .reason-text {
   margin: 0 0 25px 0;
   color: #666;

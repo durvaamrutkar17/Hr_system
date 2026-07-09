@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { resignationAPI } from '../services/api';
+import { resignationAPI, assetAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import './ResignationApprovals.css';
 
-const FILTERS = ['pending', 'approved', 'rejected', 'withdrawn', 'all'];
+const FILTERS = ['pending', 'approved', 'resigned', 'rejected', 'withdrawn', 'all'];
 const CLEARANCE_KEYS = ['it', 'finance', 'hr'];
+const idOf = (refOrId) => refOrId?._id || refOrId;
 
 const ResignationApprovals = () => {
   const [resignations, setResignations] = useState([]);
+  const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
   const [processingId, setProcessingId] = useState(null);
@@ -17,20 +19,27 @@ const ResignationApprovals = () => {
   const { message, showToast } = useToast();
 
   useEffect(() => {
-    fetchResignations();
+    fetchAll();
   }, []);
 
-  const fetchResignations = async () => {
+  const fetchAll = async () => {
     try {
       setLoading(true);
-      const response = await resignationAPI.getResignations({});
-      setResignations(response.data.resignations || []);
+      const [resignationsRes, assetsRes] = await Promise.all([
+        resignationAPI.getResignations({}),
+        assetAPI.getAssets({})
+      ]);
+      setResignations(resignationsRes.data.resignations || []);
+      setAssets(assetsRes.data.assets || []);
     } catch (error) {
       console.error('Error fetching resignations:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  const activeAssetCountFor = (employeeId) =>
+    assets.filter((a) => idOf(a.employeeId) === employeeId && a.status === 'active').length;
 
   const handleDecision = (id, status) => {
     setConfirmState({
@@ -40,13 +49,21 @@ const ResignationApprovals = () => {
     });
   };
 
+  const handleMarkResigned = (resignation) => {
+    setConfirmState({
+      message: `Mark ${resignation.employeeId?.firstName} ${resignation.employeeId?.lastName} as resigned? They'll be removed from the active employee list.`,
+      confirmLabel: 'Mark as resigned',
+      onConfirm: () => performDecision(resignation._id, 'resigned')
+    });
+  };
+
   const performDecision = async (id, status) => {
     setConfirmState(null);
     try {
       setProcessingId(id);
       await resignationAPI.updateResignation(id, { status });
-      showToast('success', `Resignation ${status}`);
-      fetchResignations();
+      showToast('success', status === 'resigned' ? 'Employee marked as resigned' : `Resignation ${status}`);
+      fetchAll();
     } catch (error) {
       showToast('error', error.response?.data?.message || error.message);
     } finally {
@@ -59,7 +76,7 @@ const ResignationApprovals = () => {
       setProcessingId(resignation._id);
       const clearance = { ...resignation.clearance, [key]: !resignation.clearance[key] };
       await resignationAPI.updateResignation(resignation._id, { clearance });
-      fetchResignations();
+      fetchAll();
     } catch (error) {
       showToast('error', error.response?.data?.message || error.message);
     } finally {
@@ -105,13 +122,13 @@ const ResignationApprovals = () => {
                   </p>
                   <p className="approval-reason">“{r.reason}”</p>
 
-                  {(r.status === 'pending' || r.status === 'approved') && (
+                  {(r.status === 'pending' || r.status === 'approved' || r.status === 'resigned') && (
                     <div className="clearance-row">
                       {CLEARANCE_KEYS.map((key) => (
                         <button
                           key={key}
                           className={`clearance-chip ${r.clearance[key] ? 'cleared' : ''}`}
-                          disabled={processingId === r._id}
+                          disabled={processingId === r._id || r.status === 'resigned'}
                           onClick={() => toggleClearance(r, key)}
                         >
                           {key.toUpperCase()} {r.clearance[key] ? '✓' : ''}
@@ -119,6 +136,30 @@ const ResignationApprovals = () => {
                       ))}
                     </div>
                   )}
+
+                  {r.status === 'approved' && (() => {
+                    const allCleared = CLEARANCE_KEYS.every((key) => r.clearance[key]);
+                    const activeAssetCount = activeAssetCountFor(idOf(r.employeeId));
+                    const blockers = [];
+                    if (!allCleared) blockers.push('complete the clearance checklist');
+                    if (activeAssetCount > 0) blockers.push(`return ${activeAssetCount} active asset${activeAssetCount > 1 ? 's' : ''}`);
+
+                    return (
+                      <div className="resign-action">
+                        <button
+                          type="button"
+                          className="resign-btn"
+                          disabled={blockers.length > 0 || processingId === r._id}
+                          onClick={() => handleMarkResigned(r)}
+                        >
+                          Mark as resigned
+                        </button>
+                        {blockers.length > 0 && (
+                          <p className="resign-blocked-note">Blocked — {blockers.join(' and ')} first</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {r.status === 'pending' && (

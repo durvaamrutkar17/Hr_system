@@ -467,6 +467,9 @@ const TeamAttendance = () => {
                   const flexHours = Math.max(hours - dayCap, 0);
                   const appliedFlex = appliedFlexByEmployeeDate[`${row.employee._id}-${row.date.toDateString()}`] || 0;
                   const status = getDayStatus(record, row.date, appliedFlex);
+                  const flexParts = [];
+                  if (flexHours > 0) flexParts.push(`+${flexHours.toFixed(2)} earned`);
+                  if (appliedFlex > 0) flexParts.push(`+${appliedFlex.toFixed(2)} applied`);
                   const hasSessions = record.sessions && record.sessions.length > 1;
                   const isExpanded = expandedRows.has(record._id);
 
@@ -494,7 +497,7 @@ const TeamAttendance = () => {
                         <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                         <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                         <td>{workingHours.toFixed(2)} hrs</td>
-                        <td>{flexHours > 0 ? `${flexHours.toFixed(2)} hrs` : '-'}</td>
+                        <td>{flexParts.length > 0 ? flexParts.join(', ') : '-'}</td>
                       </tr>
                       {isExpanded && (
                         <tr className="detail-breakdown-row">

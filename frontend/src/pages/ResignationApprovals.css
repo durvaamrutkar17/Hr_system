@@ -206,6 +206,43 @@
   color: #41464b;
 }
 
+.status-badge.resigned {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
+.resign-action {
+  margin-top: 12px;
+}
+
+.resign-btn {
+  padding: 7px 16px;
+  border: 1px solid #1b4d4d;
+  background: white;
+  color: #1b4d4d;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.resign-btn:hover:not(:disabled) {
+  background-color: #1b4d4d;
+  color: white;
+}
+
+.resign-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.resign-blocked-note {
+  margin: 6px 0 0 0;
+  color: #b3401f;
+  font-size: 12px;
+}
+
 .no-records {
   text-align: center;
   padding: 40px 20px;

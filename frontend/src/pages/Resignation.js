@@ -10,7 +10,8 @@ const STATUS_LABELS = {
   pending: 'Pending review',
   approved: 'Approved',
   rejected: 'Rejected',
-  withdrawn: 'Withdrawn'
+  withdrawn: 'Withdrawn',
+  resigned: 'Resigned'
 };
 
 const Resignation = () => {
@@ -41,7 +42,7 @@ const Resignation = () => {
     }
   };
 
-  const activeResignation = resignations.find((r) => ['pending', 'approved'].includes(r.status));
+  const activeResignation = resignations.find((r) => ['pending', 'approved', 'resigned'].includes(r.status));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,8 +104,9 @@ const Resignation = () => {
       ) : activeResignation ? (
         <div className="status-card">
           <p className="intro-text">
-            Your resignation is being reviewed by your manager and HR. A clearance checklist has
-            been opened across IT, Finance and HR.
+            {activeResignation.status === 'resigned'
+              ? 'Your offboarding is complete — IT, Finance and HR clearance has all been signed off.'
+              : 'Your resignation is being reviewed by your manager and HR. A clearance checklist has been opened across IT, Finance and HR.'}
           </p>
 
           <div className="status-summary">

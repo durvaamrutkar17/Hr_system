@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { expenseAPI } from '../services/api';
+import React, { useState, useEffect, useRef } from 'react';
+import { expenseAPI, FILE_BASE_URL } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
@@ -24,6 +24,8 @@ const Reimbursement = () => {
     description: '',
     date: new Date().toISOString().slice(0, 10)
   });
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchExpenses();
@@ -47,6 +49,10 @@ const Reimbursement = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleFilesChange = (e) => {
+    setSelectedFiles(Array.from(e.target.files || []));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const amountNum = parseFloat(formData.amount);
@@ -66,14 +72,18 @@ const Reimbursement = () => {
 
     try {
       setSubmitting(true);
-      await expenseAPI.createExpense({
-        expenseType: formData.expenseType,
-        amount: amountNum,
-        description: formData.description.trim(),
-        date: formData.date
-      });
+      const payload = new FormData();
+      payload.append('expenseType', formData.expenseType);
+      payload.append('amount', amountNum);
+      payload.append('description', formData.description.trim());
+      payload.append('date', formData.date);
+      selectedFiles.forEach((file) => payload.append('receipts', file));
+
+      await expenseAPI.createExpense(payload);
       showToast('success', 'Claim submitted for approval');
       setFormData({ expenseType: 'Travel', amount: '', description: '', date: new Date().toISOString().slice(0, 10) });
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       fetchExpenses();
     } catch (error) {
       showToast('error', error.response?.data?.message || error.message);
@@ -139,6 +149,19 @@ const Reimbursement = () => {
             />
           </div>
 
+          <div className="form-group">
+            <label>Receipts</label>
+            <input
+              type="file"
+              multiple
+              ref={fileInputRef}
+              onChange={handleFilesChange}
+            />
+            {selectedFiles.length > 0 && (
+              <p className="selected-files-note">{selectedFiles.length} file(s) selected</p>
+            )}
+          </div>
+
           <button type="submit" className="submit-btn" disabled={submitting}>
             {submitting ? 'Submitting...' : 'Submit claim'}
           </button>
@@ -160,6 +183,15 @@ const Reimbursement = () => {
                   <p className="claim-meta">
                     {expense.description} · {new Date(expense.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </p>
+                  {expense.receipts && expense.receipts.length > 0 && (
+                    <p className="claim-receipts">
+                      {expense.receipts.map((url, idx) => (
+                        <a key={url} href={`${FILE_BASE_URL}${url}`} target="_blank" rel="noreferrer">
+                          📎 Receipt {expense.receipts.length > 1 ? idx + 1 : ''}
+                        </a>
+                      ))}
+                    </p>
+                  )}
                 </div>
                 <span className={`status-badge ${expense.status}`}>
                   {STATUS_LABELS[expense.status] || expense.status}

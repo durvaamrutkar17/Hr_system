@@ -385,6 +385,35 @@
   cursor: not-allowed;
 }
 
+.profile-header-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.profile-back-btn {
+  background: none;
+  border: none;
+  color: #1b4d4d;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.profile-back-btn:hover {
+  text-decoration: underline;
+}
+
+.profile-section-card {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
 /* Employee detail modal */
 .detail-modal-card {
   max-width: 500px;
@@ -558,63 +587,6 @@
 
 .custom-fields-grid {
   margin-top: 14px;
-}
-
-.custom-field-input {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #333;
-  font-family: inherit;
-  box-sizing: border-box;
-}
-
-.custom-field-input:focus {
-  outline: none;
-  border-color: #1b4d4d;
-}
-
-.save-fields-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.save-fields-btn {
-  padding: 8px 18px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 13px;
-  background-color: #1b4d4d;
-  color: white;
-}
-
-.save-fields-btn:hover:not(:disabled) {
-  background-color: #2d6b6b;
-}
-
-.save-fields-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.save-fields-status {
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.save-fields-status.success {
-  color: #1b7a3d;
-}
-
-.save-fields-status.error {
-  color: #d64545;
 }
 
 .detail-grid {

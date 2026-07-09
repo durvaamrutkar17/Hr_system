@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { userAPI, payslipAPI, expenseAPI } from '../services/api';
+import { userAPI, attendanceAPI, leaveAPI, flexHoursAPI, expenseAPI, payslipAPI, FILE_BASE_URL } from '../services/api';
+import { buildMonthAttendanceRows, summarizeMonthRows } from '../utils/attendanceCalendar';
+import { downloadPayslipPdf } from '../utils/payslipPdf';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -8,6 +10,7 @@ import './Payroll.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
+const YEARS = [2023, 2024, 2025, 2026];
 
 const formatCurrency = (value) => `₹${Math.round(value || 0).toLocaleString('en-IN')}`;
 
@@ -19,6 +22,22 @@ const sanitizeIntInput = (value) => {
   return Number.isNaN(num) ? '' : String(Math.max(0, num));
 };
 
+const idOf = (refOrId) => refOrId?._id || refOrId;
+
+const CLAIM_STATUS_LABELS = {
+  submitted: 'Pending',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  reimbursed: 'Reimbursed'
+};
+
+const CLAIM_TABS = [
+  { key: 'pending', label: 'Pending', match: (e) => e.status === 'submitted' },
+  { key: 'approved', label: 'Approved', match: (e) => e.status === 'approved' || e.status === 'reimbursed' },
+  { key: 'rejected', label: 'Rejected', match: (e) => e.status === 'rejected' },
+  { key: 'all', label: 'All', match: () => true }
+];
+
 const computeRow = (row) => {
   const basic = toNumber(row.basic);
   const hra = toNumber(row.hra);
@@ -26,93 +45,142 @@ const computeRow = (row) => {
   const professionalTax = toNumber(row.professionalTax);
   const tds = toNumber(row.tds);
   const lopDays = toNumber(row.lopDays);
+  const reimbursement = toNumber(row.reimbursement);
 
   const gross = basic + hra + specialAllowance;
   const pf = Math.round(basic * 0.12);
   const lopAmount = lopDays > 0 ? Math.round((basic / 30) * lopDays) : 0;
-  const otherDeductions = professionalTax + tds;
-  const totalDeductions = pf + otherDeductions + lopAmount;
-  const netPayout = gross - totalDeductions;
-  return { gross, pf, otherDeductions, lopAmount, totalDeductions, netPayout };
+  const totalDeductions = pf + professionalTax + tds + lopAmount;
+  const netPay = gross - totalDeductions + reimbursement;
+  return { gross, pf, lopAmount, totalDeductions, netPay };
 };
 
-const defaultRow = (emp) => ({
-  basic: emp.salaryStructure?.basic || 0,
-  hra: emp.salaryStructure?.hra || 0,
-  specialAllowance: emp.salaryStructure?.specialAllowance || 0,
-  professionalTax: emp.salaryStructure?.professionalTax || 0,
-  tds: emp.salaryStructure?.tds || 0,
-  lopDays: 0,
-  processed: false,
-  expanded: false
-});
+// Unpaid-absence days for the month, computed the same way the employee's own
+// attendance page and the manager's Team Attendance page do — so LOP always
+// agrees with what an employee sees as "Absent" there, flex hours included.
+const computeAutoLopDays = (emp, attendance, leaves, flexRequests, month, year) => {
+  const empId = emp._id;
+  const empAttendance = attendance.filter((r) => idOf(r.employeeId) === empId);
+  const empLeaves = leaves.filter((l) => idOf(l.employeeId) === empId);
+
+  const appliedFlexByDate = flexRequests
+    .filter((r) => idOf(r.employeeId) === empId && r.status !== 'rejected')
+    .reduce((acc, r) => {
+      const key = new Date(r.date).toDateString();
+      acc[key] = (acc[key] || 0) + r.hoursRequested;
+      return acc;
+    }, {});
+
+  const rows = buildMonthAttendanceRows({
+    dateOfJoining: emp.dateOfJoining,
+    attendance: empAttendance,
+    leaves: empLeaves,
+    month,
+    year
+  });
+
+  return summarizeMonthRows(rows, appliedFlexByDate).absentCount;
+};
+
+const getReimbursementFor = (expenses, empId, month, year) =>
+  expenses
+    .filter((e) => idOf(e.employeeId) === empId)
+    .filter((e) => e.status === 'approved' || e.status === 'reimbursed')
+    .filter((e) => {
+      const d = new Date(e.date);
+      return d.getMonth() + 1 === month && d.getFullYear() === year;
+    })
+    .reduce((sum, e) => sum + e.amount, 0);
+
+const getStatusInfo = (payslip) => {
+  if (!payslip) return { label: 'Not processed', className: 'not-processed' };
+  if (payslip.paymentStatus === 'paid') return { label: 'Paid', className: 'paid' };
+  return { label: 'Processing', className: 'processing' };
+};
 
 const Payroll = () => {
   const { user } = useAuth();
   const [employees, setEmployees] = useState([]);
-  const [rows, setRows] = useState({});
   const [expenses, setExpenses] = useState([]);
+  const [payslips, setPayslips] = useState([]);
+  const [rows, setRows] = useState({});
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [processingAll, setProcessingAll] = useState(false);
+  const [rowActionId, setRowActionId] = useState(null);
   const [claimActionId, setClaimActionId] = useState(null);
+  const [claimsTab, setClaimsTab] = useState('pending');
   const [confirmState, setConfirmState] = useState(null);
   const { message, showToast } = useToast();
 
-  const today = new Date();
-  const selectedMonth = today.getMonth() + 1;
-  const selectedYear = today.getFullYear();
+  const buildRows = useCallback((employeeList, attendanceList, leaveList, flexList, expenseList, payslipList) => {
+    const nextRows = {};
+    employeeList.forEach((emp) => {
+      const payslip = payslipList.find((p) => idOf(p.employeeId) === emp._id) || null;
+      const reimbursement = getReimbursementFor(expenseList, emp._id, selectedMonth, selectedYear);
 
-  useEffect(() => {
-    fetchAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      if (payslip) {
+        nextRows[emp._id] = {
+          basic: payslip.earnings.basic,
+          hra: payslip.earnings.hra,
+          specialAllowance: payslip.earnings.specialAllowance,
+          professionalTax: payslip.deductions.professionalTax,
+          tds: payslip.deductions.tds,
+          lopDays: payslip.deductions.lopDays,
+          reimbursement,
+          expanded: false
+        };
+      } else {
+        const autoLopDays = computeAutoLopDays(emp, attendanceList, leaveList, flexList, selectedMonth, selectedYear);
+        nextRows[emp._id] = {
+          basic: emp.salaryStructure?.basic || 0,
+          hra: emp.salaryStructure?.hra || 0,
+          specialAllowance: emp.salaryStructure?.specialAllowance || 0,
+          professionalTax: emp.salaryStructure?.professionalTax || 0,
+          tds: emp.salaryStructure?.tds || 0,
+          lopDays: autoLopDays,
+          reimbursement,
+          expanded: false
+        };
+      }
+    });
+    return nextRows;
+  }, [selectedMonth, selectedYear]);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [usersRes, payslipsRes, expensesRes] = await Promise.all([
+      const [usersRes, attendanceRes, leavesRes, flexRes, expensesRes, payslipsRes] = await Promise.all([
         userAPI.getUsers(),
-        payslipAPI.getPayslips({}),
-        expenseAPI.getExpenses({ status: 'submitted' })
+        attendanceAPI.getAttendance({ month: selectedMonth, year: selectedYear }),
+        leaveAPI.getLeaves(),
+        flexHoursAPI.getFlexHoursRequests({}),
+        expenseAPI.getExpenses({}),
+        payslipAPI.getPayslips({ month: selectedMonth, year: selectedYear })
       ]);
 
       const employeeList = usersRes.data.users || [];
-      const allPayslips = payslipsRes.data.payslips || [];
-
-      const nextRows = {};
-      employeeList.forEach((emp) => {
-        const empPayslips = allPayslips
-          .filter((p) => (p.employeeId?._id || p.employeeId) === emp._id)
-          .sort((a, b) => (b.year - a.year) || (b.month - a.month));
-
-        const thisMonth = empPayslips.find((p) => p.month === selectedMonth && p.year === selectedYear);
-        const latest = thisMonth || empPayslips[0];
-
-        if (latest) {
-          nextRows[emp._id] = {
-            basic: latest.earnings.basic,
-            hra: latest.earnings.hra,
-            specialAllowance: latest.earnings.specialAllowance,
-            professionalTax: latest.deductions.professionalTax,
-            tds: latest.deductions.tds,
-            lopDays: thisMonth ? thisMonth.deductions.lopDays : 0,
-            processed: !!thisMonth,
-            expanded: false
-          };
-        } else {
-          nextRows[emp._id] = defaultRow(emp);
-        }
-      });
+      const attendanceList = attendanceRes.data.attendance || [];
+      const leaveList = leavesRes.data.leaves || [];
+      const flexList = flexRes.data.requests || [];
+      const expenseList = expensesRes.data.expenses || [];
+      const payslipList = payslipsRes.data.payslips || [];
 
       setEmployees(employeeList);
-      setRows(nextRows);
-      setExpenses(expensesRes.data.expenses || []);
+      setExpenses(expenseList);
+      setPayslips(payslipList);
+      setRows(buildRows(employeeList, attendanceList, leaveList, flexList, expenseList, payslipList));
     } catch (error) {
       console.error('Error loading payroll:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMonth, selectedYear, buildRows]);
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const updateRow = (empId, field, value) => {
     setRows((prev) => ({
@@ -128,7 +196,34 @@ const Payroll = () => {
     }));
   };
 
-  const handleProcessPayroll = () => {
+  const payslipFor = (empId) => payslips.find((p) => idOf(p.employeeId) === empId) || null;
+
+  const processEmployee = async (emp) => {
+    const row = rows[emp._id];
+    if (!toNumber(row.basic)) {
+      showToast('error', `Set a Basic salary for ${emp.firstName} ${emp.lastName} before processing.`);
+      return;
+    }
+
+    try {
+      setRowActionId(emp._id);
+      await payslipAPI.createPayslip({
+        employeeId: emp._id,
+        month: selectedMonth,
+        year: selectedYear,
+        earnings: { basic: toNumber(row.basic), hra: toNumber(row.hra), specialAllowance: toNumber(row.specialAllowance) },
+        deductions: { professionalTax: toNumber(row.professionalTax), tds: toNumber(row.tds), lopDays: toNumber(row.lopDays) }
+      });
+      showToast('success', `Payslip processed for ${emp.firstName} ${emp.lastName}`);
+      fetchAll();
+    } catch (error) {
+      showToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setRowActionId(null);
+    }
+  };
+
+  const handleProcessAll = () => {
     const missingBasic = employees.filter((emp) => !toNumber(rows[emp._id]?.basic));
     if (missingBasic.length > 0) {
       showToast(
@@ -141,16 +236,16 @@ const Payroll = () => {
     }
 
     setConfirmState({
-      message: `Process payroll for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear}?`,
-      confirmLabel: 'Process',
-      onConfirm: performProcessPayroll
+      message: `Process payroll for ${MONTH_NAMES[selectedMonth - 1]} ${selectedYear} for all employees?`,
+      confirmLabel: 'Process all',
+      onConfirm: performProcessAll
     });
   };
 
-  const performProcessPayroll = async () => {
+  const performProcessAll = async () => {
     setConfirmState(null);
     try {
-      setProcessing(true);
+      setProcessingAll(true);
       await Promise.all(employees.map((emp) => {
         const row = rows[emp._id];
         return payslipAPI.createPayslip({
@@ -166,8 +261,31 @@ const Payroll = () => {
     } catch (error) {
       showToast('error', error.response?.data?.message || error.message);
     } finally {
-      setProcessing(false);
+      setProcessingAll(false);
     }
+  };
+
+  const handleMarkPaid = async (payslip) => {
+    try {
+      setRowActionId(idOf(payslip.employeeId));
+      await payslipAPI.updatePayslip(payslip._id, { paymentStatus: 'paid', paymentDate: new Date().toISOString() });
+      showToast('success', 'Marked as paid');
+      fetchAll();
+    } catch (error) {
+      showToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setRowActionId(null);
+    }
+  };
+
+  const handleDownload = (emp, payslip) => {
+    downloadPayslipPdf({
+      payslip,
+      employeeName: `${emp.firstName} ${emp.lastName}`,
+      designation: emp.designation,
+      employeeIdStr: emp._id.slice(-6).toUpperCase(),
+      reimbursement: getReimbursementFor(expenses, emp._id, payslip.month, payslip.year)
+    });
   };
 
   const handleClaimDecision = async (id, status) => {
@@ -183,169 +301,276 @@ const Payroll = () => {
     }
   };
 
+  const allProcessed = employees.length > 0 && employees.every((emp) => payslipFor(emp._id));
+
   return (
     <div className="payroll-page">
       <p className="eyebrow">Salary Run</p>
-      <h1 className="page-title">Payroll — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}</h1>
+      <div className="payroll-page-header">
+        <h1 className="page-title">Payroll</h1>
+        <div className="month-filter">
+          <select value={selectedMonth} onChange={(e) => setSelectedMonth(parseInt(e.target.value, 10))}>
+            {MONTH_NAMES.map((m, idx) => (
+              <option key={m} value={idx + 1}>{m}</option>
+            ))}
+          </select>
+          <select value={selectedYear} onChange={(e) => setSelectedYear(parseInt(e.target.value, 10))}>
+            {YEARS.map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <Toast message={message} />
 
       <div className="calculator-card">
-        <h2 className="section-title">Salary calculator</h2>
+        <div className="calculator-card-header">
+          <h2 className="section-title">Salary — {MONTH_NAMES[selectedMonth - 1]} {selectedYear}</h2>
+          {!loading && employees.length > 0 && (
+            allProcessed ? (
+              <span className="status-badge processed-all">Processed</span>
+            ) : (
+              <button className="process-btn" onClick={handleProcessAll} disabled={processingAll}>
+                {processingAll ? 'Processing...' : `Process salary for ${MONTH_NAMES[selectedMonth - 1]}`}
+              </button>
+            )
+          )}
+        </div>
 
         {loading ? (
           <p className="loading-text">Loading employees...</p>
         ) : employees.length > 0 ? (
-          <div className="payroll-list">
-            {employees.map((emp) => {
-              const row = rows[emp._id];
-              if (!row) return null;
-              const computed = computeRow(row);
+          <div className="table-wrapper">
+            <table className="payroll-table">
+              <thead>
+                <tr>
+                  <th>Employee</th>
+                  <th>Gross Salary</th>
+                  <th>Deduction</th>
+                  <th>Reimbursement</th>
+                  <th>LOP days</th>
+                  <th>Net Pay</th>
+                  <th>Status</th>
+                  <th>Payslip</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((emp) => {
+                  const row = rows[emp._id];
+                  if (!row) return null;
+                  const computed = computeRow(row);
+                  const payslip = payslipFor(emp._id);
+                  const status = getStatusInfo(payslip);
+                  const isRowBusy = rowActionId === emp._id;
 
-              return (
-                <div key={emp._id} className="payroll-row">
-                  <div className="payroll-row-header">
-                    <div>
-                      <p className="emp-name">
-                        {emp._id === user._id ? `You (${emp.firstName} ${emp.lastName})` : `${emp.firstName} ${emp.lastName}`}
-                      </p>
-                      <p className="emp-role">{emp.designation}</p>
-                    </div>
-                    {row.processed && <span className="processed-badge">Processed</span>}
-                  </div>
-
-                  <div className="payroll-figures">
-                    <div className="figure">
-                      <p className="figure-label">Gross</p>
-                      <p className="figure-value">{formatCurrency(computed.gross)}</p>
-                    </div>
-                    <div className="figure">
-                      <label className="figure-label" htmlFor={`lop-${emp._id}`}>LOP days</label>
-                      <input
-                        id={`lop-${emp._id}`}
-                        type="number"
-                        min="0"
-                        max="31"
-                        value={row.lopDays}
-                        onChange={(e) => updateRow(emp._id, 'lopDays', sanitizeIntInput(e.target.value))}
-                      />
-                    </div>
-                    <div className="figure">
-                      <p className="figure-label">PF+PT+TDS</p>
-                      <p className="figure-value negative">-{formatCurrency(computed.pf + computed.otherDeductions)}</p>
-                    </div>
-                    <div className="figure">
-                      <p className="figure-label">Net payout</p>
-                      <p className="figure-value net">{formatCurrency(computed.netPayout)}</p>
-                    </div>
-                  </div>
-
-                  <button type="button" className="edit-toggle-btn" onClick={() => toggleExpanded(emp._id)}>
-                    {row.expanded ? 'Hide salary structure' : 'Edit salary structure'}
-                  </button>
-
-                  {row.expanded && (
-                    <div className="structure-form">
-                      <div className="structure-group">
-                        <label>Basic</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={row.basic}
-                          onChange={(e) => updateRow(emp._id, 'basic', sanitizeIntInput(e.target.value))}
-                        />
-                      </div>
-                      <div className="structure-group">
-                        <label>HRA</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={row.hra}
-                          onChange={(e) => updateRow(emp._id, 'hra', sanitizeIntInput(e.target.value))}
-                        />
-                      </div>
-                      <div className="structure-group">
-                        <label>Special Allowance</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={row.specialAllowance}
-                          onChange={(e) => updateRow(emp._id, 'specialAllowance', sanitizeIntInput(e.target.value))}
-                        />
-                      </div>
-                      <div className="structure-group">
-                        <label>Professional Tax</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={row.professionalTax}
-                          onChange={(e) => updateRow(emp._id, 'professionalTax', sanitizeIntInput(e.target.value))}
-                        />
-                      </div>
-                      <div className="structure-group">
-                        <label>TDS</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={row.tds}
-                          onChange={(e) => updateRow(emp._id, 'tds', sanitizeIntInput(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  return (
+                    <React.Fragment key={emp._id}>
+                      <tr>
+                        <td>
+                          <p className="emp-name">
+                            {emp._id === user._id ? `You (${emp.firstName} ${emp.lastName})` : `${emp.firstName} ${emp.lastName}`}
+                          </p>
+                          <p className="emp-role">{emp.designation}</p>
+                          <button type="button" className="edit-toggle-btn" onClick={() => toggleExpanded(emp._id)}>
+                            {row.expanded ? 'Hide salary structure' : 'Edit salary structure'}
+                          </button>
+                        </td>
+                        <td>{formatCurrency(computed.gross)}</td>
+                        <td className="negative">-{formatCurrency(computed.totalDeductions)}</td>
+                        <td>{row.reimbursement > 0 ? formatCurrency(row.reimbursement) : '-'}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="0"
+                            max="31"
+                            className="lop-input"
+                            value={row.lopDays}
+                            onChange={(e) => updateRow(emp._id, 'lopDays', sanitizeIntInput(e.target.value))}
+                          />
+                        </td>
+                        <td className="net-cell">{formatCurrency(computed.netPay)}</td>
+                        <td>
+                          <div className="status-cell">
+                            <span className={`status-badge ${status.className}`}>{status.label}</span>
+                            {payslip && payslip.paymentStatus !== 'paid' && (
+                              <button
+                                type="button"
+                                className="mark-paid-btn"
+                                onClick={() => handleMarkPaid(payslip)}
+                                disabled={isRowBusy}
+                              >
+                                Mark paid
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        <td>
+                          <div className="payslip-cell">
+                            {payslip ? (
+                              <>
+                                <button type="button" className="history-download-btn" onClick={() => handleDownload(emp, payslip)}>
+                                  ⬇ Download
+                                </button>
+                                <button
+                                  type="button"
+                                  className="reprocess-btn"
+                                  onClick={() => processEmployee(emp)}
+                                  disabled={isRowBusy}
+                                >
+                                  {isRowBusy ? '...' : 'Reprocess'}
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                className="process-row-btn"
+                                onClick={() => processEmployee(emp)}
+                                disabled={isRowBusy}
+                              >
+                                {isRowBusy ? 'Processing...' : 'Process'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {row.expanded && (
+                        <tr className="structure-row">
+                          <td colSpan={8}>
+                            <div className="structure-form">
+                              <div className="structure-group">
+                                <label>Basic</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={row.basic}
+                                  onChange={(e) => updateRow(emp._id, 'basic', sanitizeIntInput(e.target.value))}
+                                />
+                              </div>
+                              <div className="structure-group">
+                                <label>HRA</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={row.hra}
+                                  onChange={(e) => updateRow(emp._id, 'hra', sanitizeIntInput(e.target.value))}
+                                />
+                              </div>
+                              <div className="structure-group">
+                                <label>Special Allowance</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={row.specialAllowance}
+                                  onChange={(e) => updateRow(emp._id, 'specialAllowance', sanitizeIntInput(e.target.value))}
+                                />
+                              </div>
+                              <div className="structure-group">
+                                <label>Professional Tax</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={row.professionalTax}
+                                  onChange={(e) => updateRow(emp._id, 'professionalTax', sanitizeIntInput(e.target.value))}
+                                />
+                              </div>
+                              <div className="structure-group">
+                                <label>TDS</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={row.tds}
+                                  onChange={(e) => updateRow(emp._id, 'tds', sanitizeIntInput(e.target.value))}
+                                />
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         ) : (
           <p className="no-records">No employees found</p>
-        )}
-
-        {!loading && employees.length > 0 && (
-          <button className="process-btn" onClick={handleProcessPayroll} disabled={processing}>
-            {processing ? 'Processing...' : `Process payroll for ${MONTH_NAMES[selectedMonth - 1]}`}
-          </button>
         )}
       </div>
 
       <div className="claims-card">
         <h2 className="section-title">Reimbursement claims</h2>
+        <div className="claims-tabs">
+          {CLAIM_TABS.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              className={`claims-tab-btn ${claimsTab === tab.key ? 'active' : ''}`}
+              onClick={() => setClaimsTab(tab.key)}
+            >
+              {tab.label} ({expenses.filter(tab.match).length})
+            </button>
+          ))}
+        </div>
         {loading ? (
           <p className="loading-text">Loading...</p>
-        ) : expenses.length > 0 ? (
-          <div className="claims-list">
-            {expenses.map((exp) => (
-              <div key={exp._id} className="claim-row">
-                <div className="claim-main">
-                  <p className="claim-title">
-                    {exp.employeeId?.firstName} {exp.employeeId?.lastName} — {exp.expenseType} · ₹{exp.amount.toLocaleString('en-IN')}
-                  </p>
-                  <p className="claim-meta">{exp.description}</p>
+        ) : (() => {
+          const visibleClaims = expenses
+            .filter(CLAIM_TABS.find((t) => t.key === claimsTab).match)
+            .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+          return visibleClaims.length > 0 ? (
+            <div className="claims-list">
+              {visibleClaims.map((exp) => (
+                <div key={exp._id} className="claim-row">
+                  <div className="claim-main">
+                    <p className="claim-title">
+                      {exp.employeeId?.firstName} {exp.employeeId?.lastName} — {exp.expenseType} · ₹{exp.amount.toLocaleString('en-IN')}
+                    </p>
+                    <p className="claim-meta">
+                      {exp.description} · {new Date(exp.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </p>
+                    {exp.receipts && exp.receipts.length > 0 && (
+                      <p className="claim-receipts">
+                        {exp.receipts.map((url, idx) => (
+                          <a key={url} href={`${FILE_BASE_URL}${url}`} target="_blank" rel="noreferrer">
+                            📎 Receipt {exp.receipts.length > 1 ? idx + 1 : ''}
+                          </a>
+                        ))}
+                      </p>
+                    )}
+                  </div>
+                  {exp.status === 'submitted' ? (
+                    <div className="claim-actions">
+                      <button
+                        className="claim-approve-btn"
+                        disabled={claimActionId === exp._id}
+                        onClick={() => handleClaimDecision(exp._id, 'approved')}
+                        aria-label="Approve claim"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        className="claim-reject-btn"
+                        disabled={claimActionId === exp._id}
+                        onClick={() => handleClaimDecision(exp._id, 'rejected')}
+                        aria-label="Reject claim"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`status-badge ${exp.status}`}>
+                      {CLAIM_STATUS_LABELS[exp.status] || exp.status}
+                    </span>
+                  )}
                 </div>
-                <div className="claim-actions">
-                  <button
-                    className="claim-approve-btn"
-                    disabled={claimActionId === exp._id}
-                    onClick={() => handleClaimDecision(exp._id, 'approved')}
-                    aria-label="Approve claim"
-                  >
-                    ✓
-                  </button>
-                  <button
-                    className="claim-reject-btn"
-                    disabled={claimActionId === exp._id}
-                    onClick={() => handleClaimDecision(exp._id, 'rejected')}
-                    aria-label="Reject claim"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="no-records">No pending claims</p>
-        )}
+              ))}
+            </div>
+          ) : (
+            <p className="no-records">No {claimsTab === 'all' ? '' : claimsTab} claims</p>
+          );
+        })()}
       </div>
 
       <ConfirmDialog

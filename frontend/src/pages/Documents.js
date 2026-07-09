@@ -106,9 +106,6 @@ const Documents = () => {
         <p className="doc-name">{doc.fileName}</p>
         <p className="doc-date">{formatDate(doc.uploadedDate)}</p>
       </div>
-      {doc.category !== 'company' && (
-        <span className={`verify-badge ${doc.verificationStatus}`}>{doc.verificationStatus}</span>
-      )}
       <a
         className="download-link"
         href={`${FILE_BASE_URL}${doc.fileUrl}`}

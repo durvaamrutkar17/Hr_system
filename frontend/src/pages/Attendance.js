@@ -26,7 +26,17 @@ const Attendance = () => {
   const [flexReqHours, setFlexReqHours] = useState('');
   const [flexReqReason, setFlexReqReason] = useState('');
   const [submittingFlexRequest, setSubmittingFlexRequest] = useState(false);
+  const [expandedRows, setExpandedRows] = useState(new Set());
   const { message, showToast } = useToast();
+
+  const toggleRowDetail = (key) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
 
   useEffect(() => {
     fetchAttendance();
@@ -106,6 +116,10 @@ const Attendance = () => {
     }
     if (!correctionCheckIn && !correctionCheckOut) {
       showToast('error', 'Enter the correct check-in time, check-out time, or both');
+      return;
+    }
+    if (correctionCheckIn && correctionCheckOut && correctionCheckOut <= correctionCheckIn) {
+      showToast('error', 'Check-out time must be after check-in time');
       return;
     }
 
@@ -223,7 +237,7 @@ const Attendance = () => {
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFlexHoursModalOpen(true); }}
         >
           <p className="stat-label">Flex Hours</p>
-          <h3 className="stat-value">{totalFlexHours.toFixed(2)}</h3>
+          <h3 className="stat-value">{flexBalance.toFixed(2)}</h3>
         </div>
       </div>
 
@@ -494,6 +508,9 @@ const Attendance = () => {
                     const flexHours = Math.max(hours - dayCap, 0);
                     const appliedFlex = appliedFlexByDate[row.date.toDateString()] || 0;
                     const status = getDayStatus(record, row.date, appliedFlex);
+                    const flexParts = [];
+                    if (flexHours > 0) flexParts.push(`+${flexHours.toFixed(2)} earned`);
+                    if (appliedFlex > 0) flexParts.push(`+${appliedFlex.toFixed(2)} applied`);
 
                     return (
                       <React.Fragment key={record._id}>
@@ -502,28 +519,47 @@ const Attendance = () => {
                             <p className="date-label">{row.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
                             <p className="work-mode">{record.workMode}</p>
                           </td>
-                          <td><span className={`status-badge ${status.className}`} title={status.detail}>{status.label}</span></td>
+                          <td>
+                            <div className="status-cell">
+                              <span className={`status-badge ${status.className}`}>{status.label}</span>
+                              {status.detail && (
+                                <button
+                                  type="button"
+                                  className="status-info-btn"
+                                  onClick={() => toggleRowDetail(record._id)}
+                                  aria-label="View calculation"
+                                >
+                                  i
+                                </button>
+                              )}
+                            </div>
+                          </td>
                           <td>{record.checkInTime ? new Date(record.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                           <td>{record.checkOutTime ? new Date(record.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}</td>
                           <td>{workingHours.toFixed(2)} hrs</td>
-                          <td>{flexHours > 0 ? `${flexHours.toFixed(2)} hrs` : '-'}</td>
+                          <td>{flexParts.length > 0 ? flexParts.join(', ') : '-'}</td>
                         </tr>
-                        {record.sessions && record.sessions.length > 1 && (
-                          <tr className="session-breakdown-row">
+                        {expandedRows.has(record._id) && (
+                          <tr className="detail-breakdown-row">
                             <td colSpan={6}>
-                              <div className="session-breakdown">
-                                {record.sessions.map((s, idx) => (
-                                  <div key={idx} className="session-row">
-                                    <span className="session-label">Session {idx + 1}</span>
-                                    {s.workMode && <span className="session-mode">{s.workMode}</span>}
-                                    <span className="session-time">
-                                      {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
-                                      {' – '}
-                                      {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
-                                    </span>
-                                    {s.reason && <span className="session-reason">{s.reason}</span>}
+                              <div className="detail-breakdown">
+                                {status.detail && <p className="status-detail">{status.detail}</p>}
+                                {record.sessions && record.sessions.length > 1 && (
+                                  <div className="session-breakdown">
+                                    {record.sessions.map((s, idx) => (
+                                      <div key={idx} className="session-row">
+                                        <span className="session-label">Session {idx + 1}</span>
+                                        {s.workMode && <span className="session-mode">{s.workMode}</span>}
+                                        <span className="session-time">
+                                          {s.checkInTime ? new Date(s.checkInTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : '-'}
+                                          {' – '}
+                                          {s.checkOutTime ? new Date(s.checkOutTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }) : 'ongoing'}
+                                        </span>
+                                        {s.reason && <span className="session-reason">{s.reason}</span>}
+                                      </div>
+                                    ))}
                                   </div>
-                                ))}
+                                )}
                               </div>
                             </td>
                           </tr>

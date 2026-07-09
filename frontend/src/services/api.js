@@ -62,7 +62,9 @@ export const payslipAPI = {
 // Expense API calls
 export const expenseAPI = {
   getExpenses: (params) => api.get('/expenses', { params }),
-  createExpense: (expenseData) => api.post('/expenses', expenseData),
+  createExpense: (formData) => api.post('/expenses', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   updateExpense: (id, updateData) => api.put(`/expenses/${id}`, updateData)
 };
 
@@ -89,8 +91,7 @@ export const resignationAPI = {
 // User API calls
 export const userAPI = {
   getUsers: () => api.get('/users'),
-  createEmployee: (employeeData) => api.post('/users', employeeData),
-  updateCustomFields: (id, fields) => api.put(`/users/${id}/custom-fields`, { fields })
+  createEmployee: (employeeData) => api.post('/users', employeeData)
 };
 
 // Announcement API calls
@@ -111,7 +112,7 @@ export const holidayAPI = {
 
 // Asset API calls
 export const assetAPI = {
-  getAssets: () => api.get('/assets'),
+  getAssets: (params) => api.get('/assets', { params }),
   createAsset: (assetData) => api.post('/assets', assetData),
   updateAsset: (id, updateData) => api.put(`/assets/${id}`, updateData)
 };

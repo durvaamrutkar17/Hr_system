@@ -1,5 +1,9 @@
 import { computeLeaveDayStatuses } from './leavePolicy';
 
+// Shortfalls this small (e.g. clocking out at 8.98 hrs instead of 9) are within normal
+// rounding/clock-drift and shouldn't cost someone their Present/Half Day status.
+const GRACE_HOURS = 10 / 60;
+
 // Saturdays are a half-day (5 hrs = full present, no separate half-day tier).
 // Sundays are a company holiday when there's no actual check-in that day.
 // `appliedFlex` is hours banked from past days and applied (via an approved-or-pending
@@ -26,14 +30,14 @@ export const getDayStatus = (record, date, appliedFlex = 0) => {
   const halfDayThreshold = 5;
   const flexNote = appliedFlex > 0 ? ` + ${appliedFlex.toFixed(2)} flex hrs applied` : '';
 
-  if (hours >= presentThreshold) {
+  if (hours >= presentThreshold - GRACE_HOURS) {
     return {
       label: 'Present',
       className: 'present',
       detail: `Worked ${rawHours.toFixed(2)} hrs${flexNote} (${presentThreshold} required)`
     };
   }
-  if (dayOfWeek !== 6 && hours >= halfDayThreshold) {
+  if (dayOfWeek !== 6 && hours >= halfDayThreshold - GRACE_HOURS) {
     return {
       label: 'Half Day',
       className: 'half-day',

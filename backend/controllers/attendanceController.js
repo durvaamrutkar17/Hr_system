@@ -160,6 +160,10 @@ exports.requestCorrection = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Provide the correct check-in time, check-out time, or both' });
     }
 
+    if (checkInTime && checkOutTime && new Date(checkOutTime) <= new Date(checkInTime)) {
+      return res.status(400).json({ success: false, message: 'Check-out time must be after check-in time' });
+    }
+
     const correctionDate = new Date(date);
     correctionDate.setHours(0, 0, 0, 0);
 
@@ -212,6 +216,31 @@ exports.updateCorrectionRequest = async (req, res) => {
   try {
     const { status, approvalRemarks } = req.body;
 
+    const existingCorrection = await AttendanceCorrection.findById(req.params.id);
+    if (!existingCorrection) {
+      return res.status(404).json({ success: false, message: 'Correction request not found' });
+    }
+
+    let attendance = null;
+    if (status === 'approved' && (existingCorrection.requestedCheckInTime || existingCorrection.requestedCheckOutTime)) {
+      const day = new Date(existingCorrection.date);
+      day.setHours(0, 0, 0, 0);
+
+      attendance = await Attendance.findOne({ employeeId: existingCorrection.employeeId, date: day });
+      if (!attendance) {
+        attendance = new Attendance({ employeeId: existingCorrection.employeeId, date: day, workMode: 'WFO', sessions: [] });
+      }
+
+      const resultingCheckIn = existingCorrection.requestedCheckInTime || attendance.checkInTime;
+      const resultingCheckOut = existingCorrection.requestedCheckOutTime || attendance.checkOutTime;
+      if (resultingCheckIn && resultingCheckOut && new Date(resultingCheckOut) <= new Date(resultingCheckIn)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Approving this would make check-out time earlier than check-in time — ask the employee to resubmit with correct times'
+        });
+      }
+    }
+
     const correction = await AttendanceCorrection.findByIdAndUpdate(
       req.params.id,
       {
@@ -223,19 +252,7 @@ exports.updateCorrectionRequest = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!correction) {
-      return res.status(404).json({ success: false, message: 'Correction request not found' });
-    }
-
-    if (status === 'approved' && (correction.requestedCheckInTime || correction.requestedCheckOutTime)) {
-      const day = new Date(correction.date);
-      day.setHours(0, 0, 0, 0);
-
-      let attendance = await Attendance.findOne({ employeeId: correction.employeeId, date: day });
-      if (!attendance) {
-        attendance = new Attendance({ employeeId: correction.employeeId, date: day, workMode: 'WFO', sessions: [] });
-      }
-
+    if (attendance) {
       if (correction.requestedCheckInTime) attendance.checkInTime = correction.requestedCheckInTime;
       if (correction.requestedCheckOutTime) attendance.checkOutTime = correction.requestedCheckOutTime;
 

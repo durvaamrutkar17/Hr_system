@@ -1,4 +1,6 @@
 const Resignation = require('../models/Resignation');
+const Asset = require('../models/Asset');
+const User = require('../models/User');
 
 // @desc    Submit a resignation request
 // @route   POST /api/resignations
@@ -63,8 +65,37 @@ exports.getResignations = async (req, res) => {
 exports.updateResignation = async (req, res) => {
   try {
     const { status, approvalRemarks, clearance } = req.body;
-    const update = {};
 
+    const existing = await Resignation.findById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Resignation not found' });
+    }
+
+    if (status === 'resigned') {
+      if (existing.status !== 'approved') {
+        return res.status(400).json({ success: false, message: 'Only an approved resignation can be marked as resigned' });
+      }
+
+      const mergedClearance = {
+        it: existing.clearance?.it,
+        finance: existing.clearance?.finance,
+        hr: existing.clearance?.hr,
+        ...(clearance || {})
+      };
+      if (!mergedClearance.it || !mergedClearance.finance || !mergedClearance.hr) {
+        return res.status(400).json({ success: false, message: 'Complete the IT, Finance and HR clearance checklist before marking as resigned' });
+      }
+
+      const activeAssets = await Asset.countDocuments({ employeeId: existing.employeeId, status: 'active' });
+      if (activeAssets > 0) {
+        return res.status(400).json({
+          success: false,
+          message: `This employee still has ${activeAssets} active asset${activeAssets > 1 ? 's' : ''} assigned — mark them returned first`
+        });
+      }
+    }
+
+    const update = {};
     if (status) {
       update.status = status;
       update.approvedBy = req.user.id;
@@ -79,8 +110,8 @@ exports.updateResignation = async (req, res) => {
       { new: true, runValidators: true }
     );
 
-    if (!resignation) {
-      return res.status(404).json({ success: false, message: 'Resignation not found' });
+    if (status === 'resigned') {
+      await User.findByIdAndUpdate(resignation.employeeId, { status: 'resigned' });
     }
 
     res.status(200).json({ success: true, resignation });

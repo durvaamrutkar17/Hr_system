@@ -25,7 +25,8 @@ exports.getExpenses = async (req, res) => {
 // @access  Private
 exports.createExpense = async (req, res) => {
   try {
-    const { expenseType, amount, currency, description, date, receipts } = req.body;
+    const { expenseType, amount, currency, description, date } = req.body;
+    const receipts = (req.files || []).map((file) => `/uploads/${file.filename}`);
 
     const expense = await Expense.create({
       employeeId: req.user.id,

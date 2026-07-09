@@ -16,7 +16,7 @@ const resignationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'withdrawn'],
+    enum: ['pending', 'approved', 'rejected', 'withdrawn', 'resigned'],
     default: 'pending'
   },
   clearance: {

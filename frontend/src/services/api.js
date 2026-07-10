@@ -92,7 +92,8 @@ export const resignationAPI = {
 export const userAPI = {
   getUsers: () => api.get('/users'),
   getUserById: (id) => api.get(`/users/${id}`),
-  createEmployee: (employeeData) => api.post('/users', employeeData)
+  createEmployee: (employeeData) => api.post('/users', employeeData),
+  updateLeaveBalance: (id, balanceData) => api.patch(`/users/${id}/leave-balance`, balanceData)
 };
 
 // Announcement API calls

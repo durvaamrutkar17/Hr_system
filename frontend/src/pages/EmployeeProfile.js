@@ -12,9 +12,11 @@ import {
   payslipAPI,
   FILE_BASE_URL
 } from '../services/api';
-import { buildMonthAttendanceRows, summarizeMonthRows, getDayStatus } from '../utils/attendanceCalendar';
+import { buildMonthAttendanceRows, summarizeMonthRows, getDayStatus, computeLopBreakdown } from '../utils/attendanceCalendar';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
 import { splitCustomSalaryFields } from '../utils/salaryCalc';
+import useToast from '../hooks/useToast';
+import Toast from '../components/Toast';
 import './ManagerDashboard.css';
 import './Attendance.css';
 import './Salary.css';
@@ -40,6 +42,10 @@ const EmployeeProfile = () => {
 
   const [employee, setEmployee] = useState(null);
   const [loadingEmployee, setLoadingEmployee] = useState(true);
+  const [editingLeaveBalance, setEditingLeaveBalance] = useState(false);
+  const [leaveBalanceForm, setLeaveBalanceForm] = useState({ casual: 0, sick: 0, earned: 0 });
+  const [savingLeaveBalance, setSavingLeaveBalance] = useState(false);
+  const { message, showToast } = useToast();
 
   const [corrections, setCorrections] = useState([]);
   const [expenses, setExpenses] = useState([]);
@@ -149,6 +155,25 @@ const EmployeeProfile = () => {
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
   const { earnings: customEarnings, deductions: customDeductions } = splitCustomSalaryFields(employee?.customSalaryFields);
 
+  // A payslip for the month still in progress was processed against attendance
+  // as of that moment — absences since then wouldn't show up unless someone
+  // reprocesses it. The attendance already loaded above for the selected month
+  // lets us show the live LOP figure instead of the frozen one, as long as the
+  // manager hasn't navigated the month picker away from the current month.
+  const today = new Date();
+  const isViewingCurrentMonth = selectedMonth === today.getMonth() + 1 && selectedYear === today.getFullYear();
+  const latestIsOngoingMonth = !!latestPayslip && isViewingCurrentMonth
+    && latestPayslip.month === selectedMonth && latestPayslip.year === selectedYear;
+  const liveLopInfo = latestIsOngoingMonth ? computeLopBreakdown(rows, appliedFlexByDate) : null;
+  const liveLopAmount = liveLopInfo && liveLopInfo.lopDays > 0
+    ? Math.round((latestPayslip.earnings.basic / 30) * liveLopInfo.lopDays)
+    : 0;
+  const displayLopDays = latestIsOngoingMonth ? liveLopInfo.lopDays : (latestPayslip?.deductions.lopDays || 0);
+  const displayLopAmount = latestIsOngoingMonth ? liveLopAmount : (latestPayslip?.deductions.lopAmount || 0);
+  const lopAdjustment = latestPayslip ? displayLopAmount - latestPayslip.deductions.lopAmount : 0;
+  const displayTotalDeductions = latestPayslip ? latestPayslip.totalDeductions + lopAdjustment : 0;
+  const displayNetSalary = latestPayslip ? latestPayslip.netSalary - lopAdjustment : 0;
+
   const getReimbursementsFor = (month, year) =>
     expenses
       .filter((e) => {
@@ -169,6 +194,35 @@ const EmployeeProfile = () => {
     });
   };
 
+  const startEditLeaveBalance = () => {
+    setLeaveBalanceForm({
+      casual: employee?.casualLeaveBalance ?? 0,
+      sick: employee?.sickLeaveBalance ?? 0,
+      earned: employee?.earnedLeaveBalance ?? 0
+    });
+    setEditingLeaveBalance(true);
+  };
+
+  const cancelEditLeaveBalance = () => setEditingLeaveBalance(false);
+
+  const saveLeaveBalance = async () => {
+    try {
+      setSavingLeaveBalance(true);
+      const res = await userAPI.updateLeaveBalance(employeeId, {
+        casualLeaveBalance: leaveBalanceForm.casual,
+        sickLeaveBalance: leaveBalanceForm.sick,
+        earnedLeaveBalance: leaveBalanceForm.earned
+      });
+      setEmployee((prev) => (prev ? { ...prev, ...res.data.user } : prev));
+      setEditingLeaveBalance(false);
+      showToast('success', 'Leave balance updated');
+    } catch (error) {
+      showToast('error', error.response?.data?.message || error.message);
+    } finally {
+      setSavingLeaveBalance(false);
+    }
+  };
+
   const recentLeaves = [...leaves].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).slice(0, 5);
   const recentCorrections = [...corrections].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
   const recentExpenses = [...expenses].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
@@ -187,6 +241,7 @@ const EmployeeProfile = () => {
 
   return (
     <div className="manager-dashboard-page">
+      <Toast message={message} />
       <div className="profile-header-row">
         <button type="button" className="profile-back-btn" onClick={() => navigate('/employees')}>
           ← Back to Employees
@@ -239,21 +294,70 @@ const EmployeeProfile = () => {
             </div>
 
             <div className="detail-section">
-              <h3 className="detail-section-title">Leave balance</h3>
-              <div className="detail-grid">
-                <div className="detail-field">
-                  <p className="detail-label">Casual</p>
-                  <p className="detail-value">{employee.casualLeaveBalance ?? '—'}</p>
-                </div>
-                <div className="detail-field">
-                  <p className="detail-label">Sick</p>
-                  <p className="detail-value">{employee.sickLeaveBalance ?? '—'}</p>
-                </div>
-                <div className="detail-field">
-                  <p className="detail-label">Earned</p>
-                  <p className="detail-value">{employee.earnedLeaveBalance ?? '—'}</p>
-                </div>
+              <div className="detail-section-header">
+                <h3 className="detail-section-title">Leave balance</h3>
+                {!editingLeaveBalance && (
+                  <button type="button" className="add-field-btn" onClick={startEditLeaveBalance}>
+                    Edit
+                  </button>
+                )}
               </div>
+              {editingLeaveBalance ? (
+                <>
+                  <div className="structure-form">
+                    <div className="structure-group">
+                      <label>Casual</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={leaveBalanceForm.casual}
+                        onChange={(e) => setLeaveBalanceForm((prev) => ({ ...prev, casual: e.target.value }))}
+                      />
+                    </div>
+                    <div className="structure-group">
+                      <label>Sick</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={leaveBalanceForm.sick}
+                        onChange={(e) => setLeaveBalanceForm((prev) => ({ ...prev, sick: e.target.value }))}
+                      />
+                    </div>
+                    <div className="structure-group">
+                      <label>Earned</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={leaveBalanceForm.earned}
+                        onChange={(e) => setLeaveBalanceForm((prev) => ({ ...prev, earned: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="modal-actions">
+                    <button type="button" className="modal-cancel-btn" onClick={cancelEditLeaveBalance} disabled={savingLeaveBalance}>
+                      Cancel
+                    </button>
+                    <button type="button" className="modal-submit-btn" onClick={saveLeaveBalance} disabled={savingLeaveBalance}>
+                      {savingLeaveBalance ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="detail-grid">
+                  <div className="detail-field">
+                    <p className="detail-label">Casual</p>
+                    <p className="detail-value">{employee.casualLeaveBalance ?? '—'}</p>
+                  </div>
+                  <div className="detail-field">
+                    <p className="detail-label">Sick</p>
+                    <p className="detail-value">{employee.sickLeaveBalance ?? '—'}</p>
+                  </div>
+                  <div className="detail-field">
+                    <p className="detail-label">Earned</p>
+                    <p className="detail-value">{employee.earnedLeaveBalance ?? '—'}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -504,9 +608,6 @@ const EmployeeProfile = () => {
                   <p className="detail-list-meta">{doc.documentType} · {formatDate(doc.uploadedDate)}</p>
                 </div>
                 <div className="detail-list-actions">
-                  {doc.category !== 'company' && (
-                    <span className={`verify-badge ${doc.verificationStatus}`}>{doc.verificationStatus}</span>
-                  )}
                   <a
                     className="detail-download-link"
                     href={`${FILE_BASE_URL}${doc.fileUrl}`}
@@ -566,7 +667,7 @@ const EmployeeProfile = () => {
             <div className="net-pay-card">
               <div>
                 <p className="net-pay-label">Net pay · {MONTH_NAMES[latestPayslip.month - 1]} {latestPayslip.year}</p>
-                <h2 className="net-pay-value">{formatCurrency(latestPayslip.netSalary)}</h2>
+                <h2 className="net-pay-value">{formatCurrency(displayNetSalary)}</h2>
               </div>
               <div>
                 <p className="net-pay-label">Status</p>
@@ -616,8 +717,8 @@ const EmployeeProfile = () => {
                   <span className="negative">-{formatCurrency(latestPayslip.deductions?.tds)}</span>
                 </div>
                 <div className="breakdown-row">
-                  <span>LOP ({latestPayslip.deductions?.lopDays || 0} days)</span>
-                  <span className="negative">-{formatCurrency(latestPayslip.deductions?.lopAmount)}</span>
+                  <span>LOP ({displayLopDays} days)</span>
+                  <span className="negative">-{formatCurrency(displayLopAmount)}</span>
                 </div>
                 {(latestPayslip.deductions?.custom || []).map((f) => (
                   <div className="breakdown-row" key={f.name}>
@@ -627,7 +728,7 @@ const EmployeeProfile = () => {
                 ))}
                 <div className="breakdown-row total-row">
                   <span>Total deductions</span>
-                  <span className="negative">-{formatCurrency(latestPayslip.totalDeductions)}</span>
+                  <span className="negative">-{formatCurrency(displayTotalDeductions)}</span>
                 </div>
               </div>
             </div>
@@ -695,14 +796,17 @@ const EmployeeProfile = () => {
                 {payslips.map((p) => {
                   const reimbursement = getReimbursementsFor(p.month, p.year);
                   const status = getStatusLabel(p.paymentStatus);
+                  const isOngoing = p._id === latestPayslip?._id && latestIsOngoingMonth;
+                  const rowTotalDeductions = isOngoing ? displayTotalDeductions : p.totalDeductions;
+                  const rowNetSalary = isOngoing ? displayNetSalary : p.netSalary;
 
                   return (
                     <tr key={p._id}>
                       <td>{MONTH_NAMES[p.month - 1]} {p.year}</td>
                       <td>{formatCurrency(p.grossSalary)}</td>
-                      <td className="negative">-{formatCurrency(p.totalDeductions)}</td>
+                      <td className="negative">-{formatCurrency(rowTotalDeductions)}</td>
                       <td>{reimbursement > 0 ? formatCurrency(reimbursement) : '-'}</td>
-                      <td className="net-cell">{formatCurrency(p.netSalary + reimbursement)}</td>
+                      <td className="net-cell">{formatCurrency(rowNetSalary + reimbursement)}</td>
                       <td>
                         {status && <span className={`status-badge ${status.className}`}>{status.label}</span>}
                       </td>

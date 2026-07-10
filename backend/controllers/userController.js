@@ -33,6 +33,34 @@ exports.getUserById = async (req, res) => {
   }
 };
 
+// @desc    Update an employee's leave balance
+// @route   PATCH /api/users/:id/leave-balance
+// @access  Private/Manager/Admin
+exports.updateLeaveBalance = async (req, res) => {
+  try {
+    const { casualLeaveBalance, sickLeaveBalance, earnedLeaveBalance } = req.body;
+    const toNonNegative = (value) => Math.max(0, Number(value) || 0);
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      {
+        casualLeaveBalance: toNonNegative(casualLeaveBalance),
+        sickLeaveBalance: toNonNegative(sickLeaveBalance),
+        earnedLeaveBalance: toNonNegative(earnedLeaveBalance)
+      },
+      { new: true, runValidators: true }
+    ).select('firstName lastName casualLeaveBalance sickLeaveBalance earnedLeaveBalance');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    res.status(200).json({ success: true, user });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Add a new employee
 // @route   POST /api/users
 // @access  Private/Manager/Admin

@@ -7,6 +7,7 @@ const User = require('../models/User');
 exports.getLeaves = async (req, res) => {
   try {
     const leaves = await Leave.find()
+      .sort({ createdAt: -1 })
       .populate('employeeId', 'firstName lastName email')
       .populate('approvedBy', 'firstName lastName');
     res.status(200).json({ success: true, leaves });
@@ -21,6 +22,7 @@ exports.getLeaves = async (req, res) => {
 exports.getEmployeeLeaves = async (req, res) => {
   try {
     const leaves = await Leave.find({ employeeId: req.params.id })
+      .sort({ createdAt: -1 })
       .populate('employeeId', 'firstName lastName email')
       .populate('approvedBy', 'firstName lastName');
     res.status(200).json({ success: true, leaves });

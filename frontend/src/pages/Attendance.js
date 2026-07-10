@@ -39,17 +39,23 @@ const Attendance = () => {
   };
 
   useEffect(() => {
-    fetchAttendance();
-    fetchCorrections();
-    fetchLeaves();
-    fetchFlexRequests();
-    fetchFlexBalance();
+    // Present/Absent/Leave counts and the table below both need attendance AND
+    // leaves (and flex requests, for applied-flex day status) together — loading
+    // only around the attendance fetch let the stats render off empty leave data
+    // first and then visibly jump once leaves arrived a moment later.
+    setLoading(true);
+    Promise.all([
+      fetchAttendance(),
+      fetchCorrections(),
+      fetchLeaves(),
+      fetchFlexRequests(),
+      fetchFlexBalance()
+    ]).finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedMonth, selectedYear]);
 
   const fetchAttendance = async () => {
     try {
-      setLoading(true);
       const response = await attendanceAPI.getAttendance({
         employeeId: user._id,
         month: selectedMonth,
@@ -58,8 +64,6 @@ const Attendance = () => {
       setAttendance(response.data.attendance || []);
     } catch (error) {
       console.error('Error fetching attendance:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -219,15 +223,15 @@ const Attendance = () => {
       <div className="attendance-stats">
         <div className="stat-card">
           <p className="stat-label">Present</p>
-          <h3 className="stat-value">{presentCount}</h3>
+          <h3 className="stat-value">{loading ? '—' : presentCount}</h3>
         </div>
         <div className="stat-card">
           <p className="stat-label">Absent</p>
-          <h3 className="stat-value">{absentCount}</h3>
+          <h3 className="stat-value">{loading ? '—' : absentCount}</h3>
         </div>
         <div className="stat-card">
           <p className="stat-label">Leave</p>
-          <h3 className="stat-value">{leaveCount}</h3>
+          <h3 className="stat-value">{loading ? '—' : leaveCount}</h3>
         </div>
         <div
           className="stat-card flex-hours-card"
@@ -237,7 +241,7 @@ const Attendance = () => {
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setFlexHoursModalOpen(true); }}
         >
           <p className="stat-label">Flex Hours</p>
-          <h3 className="stat-value">{flexBalance.toFixed(2)}</h3>
+          <h3 className="stat-value">{loading ? '—' : flexBalance.toFixed(2)}</h3>
         </div>
       </div>
 

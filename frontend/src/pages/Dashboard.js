@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [submittingCheckIn, setSubmittingCheckIn] = useState(false);
   const [monthAttendance, setMonthAttendance] = useState([]);
   const [monthLeaves, setMonthLeaves] = useState([]);
+  const [loadingStats, setLoadingStats] = useState(true);
   const { message, showToast } = useToast();
 
   const onProbation = isOnProbation(user?.dateOfJoining);
@@ -39,8 +40,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     fetchData();
-    checkTodayStatus();
-    fetchMonthLeaves();
+    // Present/Absent/Leave (shown during probation) needs both attendance and
+    // leaves — without waiting for both together, the count would render off
+    // whichever arrived first and then visibly jump once the other arrived.
+    Promise.all([checkTodayStatus(), fetchMonthLeaves()]).finally(() => setLoadingStats(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -284,21 +287,21 @@ const Dashboard = () => {
           <div className="stat-card">
             <div className="stat-icon">✅</div>
             <div className="stat-content">
-              <h3>{presentCount}</h3>
+              <h3>{loadingStats ? '—' : presentCount}</h3>
               <p>Present this month</p>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon">❌</div>
             <div className="stat-content">
-              <h3>{absentCount}</h3>
+              <h3>{loadingStats ? '—' : absentCount}</h3>
               <p>Absent this month</p>
             </div>
           </div>
           <div className="stat-card">
             <div className="stat-icon">☀️</div>
             <div className="stat-content">
-              <h3>{leaveCount}</h3>
+              <h3>{loadingStats ? '—' : leaveCount}</h3>
               <p>Leave this month</p>
             </div>
           </div>

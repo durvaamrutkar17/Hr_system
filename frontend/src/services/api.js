@@ -91,6 +91,7 @@ export const resignationAPI = {
 // User API calls
 export const userAPI = {
   getUsers: () => api.get('/users'),
+  getUserById: (id) => api.get(`/users/${id}`),
   createEmployee: (employeeData) => api.post('/users', employeeData)
 };
 

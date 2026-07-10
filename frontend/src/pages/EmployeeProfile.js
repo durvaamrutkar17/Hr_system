@@ -53,10 +53,11 @@ const EmployeeProfile = () => {
     const fetchEmployee = async () => {
       try {
         setLoadingEmployee(true);
-        const res = await userAPI.getUsers();
-        setEmployee((res.data.users || []).find((e) => e._id === employeeId) || null);
+        const res = await userAPI.getUserById(employeeId);
+        setEmployee(res.data.user || null);
       } catch (error) {
         console.error('Error loading employee:', error);
+        setEmployee(null);
       } finally {
         setLoadingEmployee(false);
       }
@@ -179,6 +180,9 @@ const EmployeeProfile = () => {
                 <p className="detail-role">{employee.designation} · {employee.department}</p>
               </div>
               <span className={`role-badge ${employee.role}`}>{employee.role}</span>
+              {employee.status && employee.status !== 'active' && (
+                <span className="status-badge resigned">{employee.status === 'resigned' ? 'Resigned' : 'Inactive'}</span>
+              )}
             </div>
 
             <div className="detail-section">
@@ -528,30 +532,92 @@ const EmployeeProfile = () => {
         {loadingDetail ? (
           <p className="loading-text">Loading...</p>
         ) : latestPayslip ? (
-          <div className="detail-grid">
-            <div className="detail-field">
-              <p className="detail-label">Net pay · {MONTH_NAMES[latestPayslip.month - 1]} {latestPayslip.year}</p>
-              <p className="detail-value">{formatCurrency(latestPayslip.netSalary)}</p>
-            </div>
-            <div className="detail-field">
-              <p className="detail-label">Gross</p>
-              <p className="detail-value">{formatCurrency(latestPayslip.grossSalary)}</p>
-            </div>
-            <div className="detail-field">
-              <p className="detail-label">Deductions</p>
-              <p className="detail-value">{formatCurrency(latestPayslip.totalDeductions)}</p>
-            </div>
-            <div className="detail-field">
-              <p className="detail-label">Status</p>
-              <p className="detail-value">
+          <>
+            <div className="net-pay-card">
+              <div>
+                <p className="net-pay-label">Net pay · {MONTH_NAMES[latestPayslip.month - 1]} {latestPayslip.year}</p>
+                <h2 className="net-pay-value">{formatCurrency(latestPayslip.netSalary)}</h2>
+              </div>
+              <div>
+                <p className="net-pay-label">Status</p>
                 <span className={`status-badge ${latestPayslip.paymentStatus === 'paid' ? 'paid' : 'processing'}`}>
                   {latestPayslip.paymentStatus === 'paid' ? 'Paid' : 'Processing'}
                 </span>
-              </p>
+              </div>
             </div>
-          </div>
+            <div className="breakdown-grid">
+              <div className="breakdown-card">
+                <h3 className="breakdown-title">Earnings</h3>
+                <div className="breakdown-row">
+                  <span>Basic</span>
+                  <span>{formatCurrency(latestPayslip.earnings?.basic)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>HRA</span>
+                  <span>{formatCurrency(latestPayslip.earnings?.hra)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>Special Allowance</span>
+                  <span>{formatCurrency(latestPayslip.earnings?.specialAllowance)}</span>
+                </div>
+                <div className="breakdown-row total-row">
+                  <span>Gross Earnings</span>
+                  <span>{formatCurrency(latestPayslip.grossSalary)}</span>
+                </div>
+              </div>
+              <div className="breakdown-card">
+                <h3 className="breakdown-title">Deductions</h3>
+                <div className="breakdown-row">
+                  <span>PF (12% of basic)</span>
+                  <span className="negative">-{formatCurrency(latestPayslip.deductions?.pf)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>Professional Tax</span>
+                  <span className="negative">-{formatCurrency(latestPayslip.deductions?.professionalTax)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>TDS</span>
+                  <span className="negative">-{formatCurrency(latestPayslip.deductions?.tds)}</span>
+                </div>
+                <div className="breakdown-row">
+                  <span>LOP ({latestPayslip.deductions?.lopDays || 0} days)</span>
+                  <span className="negative">-{formatCurrency(latestPayslip.deductions?.lopAmount)}</span>
+                </div>
+                <div className="breakdown-row total-row">
+                  <span>Total deductions</span>
+                  <span className="negative">-{formatCurrency(latestPayslip.totalDeductions)}</span>
+                </div>
+              </div>
+            </div>
+          </>
         ) : (
-          <p className="detail-list-empty">No payslips generated yet</p>
+          <>
+            <p className="detail-list-empty">No payslips generated yet</p>
+            {employee?.salaryStructure && (
+              <div className="detail-grid">
+                <div className="detail-field">
+                  <p className="detail-label">Basic</p>
+                  <p className="detail-value">{formatCurrency(employee.salaryStructure.basic)}</p>
+                </div>
+                <div className="detail-field">
+                  <p className="detail-label">HRA</p>
+                  <p className="detail-value">{formatCurrency(employee.salaryStructure.hra)}</p>
+                </div>
+                <div className="detail-field">
+                  <p className="detail-label">Special Allowance</p>
+                  <p className="detail-value">{formatCurrency(employee.salaryStructure.specialAllowance)}</p>
+                </div>
+                <div className="detail-field">
+                  <p className="detail-label">Professional Tax</p>
+                  <p className="detail-value">{formatCurrency(employee.salaryStructure.professionalTax)}</p>
+                </div>
+                <div className="detail-field">
+                  <p className="detail-label">TDS</p>
+                  <p className="detail-value">{formatCurrency(employee.salaryStructure.tds)}</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
         {!loadingDetail && employee?.customSalaryFields && Object.keys(employee.customSalaryFields).length > 0 && (
           <div className="detail-grid custom-fields-grid">

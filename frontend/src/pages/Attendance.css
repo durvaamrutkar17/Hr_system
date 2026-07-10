@@ -315,6 +315,11 @@
   color: #721c24;
 }
 
+.status-badge.resigned {
+  background-color: #cce5ff;
+  color: #004085;
+}
+
 .status-badge.leave {
   background-color: #cce5ff;
   color: #004085;

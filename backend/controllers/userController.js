@@ -15,6 +15,24 @@ exports.getUsers = async (req, res) => {
   }
 };
 
+// @desc    Get a single employee by id (includes resigned/inactive, for profile view)
+// @route   GET /api/users/:id
+// @access  Private/Manager/Admin
+exports.getUserById = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id)
+      .select('firstName lastName email phone designation department role status dateOfJoining workMode casualLeaveBalance sickLeaveBalance earnedLeaveBalance salaryStructure customSalaryFields createdAt');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'Employee not found' });
+    }
+
+    res.status(200).json({ success: true, user });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
+
 // @desc    Add a new employee
 // @route   POST /api/users
 // @access  Private/Manager/Admin

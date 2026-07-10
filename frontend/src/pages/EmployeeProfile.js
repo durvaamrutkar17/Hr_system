@@ -13,6 +13,7 @@ import {
   FILE_BASE_URL
 } from '../services/api';
 import { buildMonthAttendanceRows, summarizeMonthRows, getDayStatus } from '../utils/attendanceCalendar';
+import { downloadPayslipPdf } from '../utils/payslipPdf';
 import './ManagerDashboard.css';
 import './Attendance.css';
 import './Salary.css';
@@ -25,6 +26,11 @@ const formatCurrency = (value) => `₹${Math.round(value || 0).toLocaleString('e
 
 const formatDate = (date) =>
   new Date(date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const getStatusLabel = (paymentStatus) =>
+  paymentStatus === 'paid'
+    ? { label: 'Paid', className: 'paid' }
+    : { label: 'Processing', className: 'processing' };
 
 const EmployeeProfile = () => {
   const { employeeId } = useParams();
@@ -39,6 +45,7 @@ const EmployeeProfile = () => {
   const [documents, setDocuments] = useState([]);
   const [assets, setAssets] = useState([]);
   const [leaves, setLeaves] = useState([]);
+  const [payslips, setPayslips] = useState([]);
   const [latestPayslip, setLatestPayslip] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(true);
 
@@ -78,6 +85,7 @@ const EmployeeProfile = () => {
         setExpenses(expensesRes.data.expenses || []);
         setDocuments(documentsRes.data.documents || []);
         setAssets(assetsRes.data.assets || []);
+        setPayslips(payslipsRes.data.payslips || []);
         setLatestPayslip((payslipsRes.data.payslips || [])[0] || null);
         setLeaves(leavesRes.data.leaves || []);
       } catch (error) {
@@ -138,6 +146,26 @@ const EmployeeProfile = () => {
 
   const { presentCount } = summarizeMonthRows(rows, appliedFlexByDate);
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
+
+  const getReimbursementsFor = (month, year) =>
+    expenses
+      .filter((e) => {
+        if (e.status !== 'approved' && e.status !== 'reimbursed') return false;
+        const d = new Date(e.date);
+        return d.getMonth() + 1 === month && d.getFullYear() === year;
+      })
+      .reduce((sum, e) => sum + e.amount, 0);
+
+  const handleDownloadPayslip = (payslip) => {
+    if (!employee) return;
+    downloadPayslipPdf({
+      payslip,
+      employeeName: `${employee.firstName} ${employee.lastName}`,
+      designation: employee.designation,
+      employeeIdStr: employee._id.slice(-6).toUpperCase(),
+      reimbursement: getReimbursementsFor(payslip.month, payslip.year)
+    });
+  };
 
   const recentLeaves = [...leaves].sort((a, b) => new Date(b.startDate) - new Date(a.startDate)).slice(0, 5);
   const recentCorrections = [...corrections].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
@@ -630,6 +658,51 @@ const EmployeeProfile = () => {
           </div>
         )}
       </div>
+
+      {!loadingDetail && payslips.length > 0 && (
+        <div className="profile-section-card history-card">
+          <h3 className="breakdown-title">Salary history</h3>
+          <div className="table-wrapper">
+            <table className="salary-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Gross Salary</th>
+                  <th>Deductions</th>
+                  <th>Reimbursements</th>
+                  <th>Net Pay</th>
+                  <th>Status</th>
+                  <th>Payslip</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payslips.map((p) => {
+                  const reimbursement = getReimbursementsFor(p.month, p.year);
+                  const status = getStatusLabel(p.paymentStatus);
+
+                  return (
+                    <tr key={p._id}>
+                      <td>{MONTH_NAMES[p.month - 1]} {p.year}</td>
+                      <td>{formatCurrency(p.grossSalary)}</td>
+                      <td className="negative">-{formatCurrency(p.totalDeductions)}</td>
+                      <td>{reimbursement > 0 ? formatCurrency(reimbursement) : '-'}</td>
+                      <td className="net-cell">{formatCurrency(p.netSalary + reimbursement)}</td>
+                      <td>
+                        {status && <span className={`status-badge ${status.className}`}>{status.label}</span>}
+                      </td>
+                      <td>
+                        <button className="history-download-btn" onClick={() => handleDownloadPayslip(p)}>
+                          ⬇ Download
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

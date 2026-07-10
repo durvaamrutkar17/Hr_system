@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -40,6 +40,7 @@ const PrivateRoute = ({ children }) => {
 
 const AppContent = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'me');
 
@@ -50,9 +51,15 @@ const AppContent = () => {
     setSidebarOpen(!sidebarOpen);
   };
 
+  // The sidebar's menu items switch immediately based on viewMode, but route
+  // guards for manager-only pages key off the account's actual role (which
+  // doesn't change) — so without this, switching to "Me" while on a
+  // manager-only page left the sidebar and the page content out of sync.
+  // Landing on the dashboard for the new mode keeps them consistent.
   const changeViewMode = (mode) => {
     setViewMode(mode);
     localStorage.setItem('viewMode', mode);
+    navigate('/dashboard');
   };
 
   useEffect(() => {

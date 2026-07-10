@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { resignationAPI, assetAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
@@ -10,6 +11,7 @@ const CLEARANCE_KEYS = ['it', 'finance', 'hr'];
 const idOf = (refOrId) => refOrId?._id || refOrId;
 
 const ResignationApprovals = () => {
+  const navigate = useNavigate();
   const [resignations, setResignations] = useState([]);
   const [assets, setAssets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,12 @@ const ResignationApprovals = () => {
               <div key={r._id} className="approval-row">
                 <div className="approval-main">
                   <div className="approval-header">
-                    <p className="approval-name">{r.employeeId?.firstName} {r.employeeId?.lastName}</p>
+                    <p
+                      className="approval-name approval-name-link"
+                      onClick={() => idOf(r.employeeId) && navigate(`/employees/${idOf(r.employeeId)}`)}
+                    >
+                      {r.employeeId?.firstName} {r.employeeId?.lastName}
+                    </p>
                     <span className={`status-badge ${r.status}`}>{r.status}</span>
                   </div>
                   <p className="approval-meta">

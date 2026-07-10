@@ -90,6 +90,15 @@
   font-size: 15px;
 }
 
+.approval-name-link {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.approval-name-link:hover {
+  text-decoration: underline;
+}
+
 .approval-meta {
   margin: 4px 0 0 0;
   color: #666;

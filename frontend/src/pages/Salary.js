@@ -10,6 +10,12 @@ import './Salary.css';
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
+const LOP_TYPE_LABELS = {
+  absent: 'Absent',
+  'half-day': 'Half Day',
+  'unpaid-leave': 'Unpaid leave'
+};
+
 const formatCurrency = (value) => `₹${Math.round(value).toLocaleString('en-IN')}`;
 
 const getStatusLabel = (paymentStatus) =>
@@ -23,6 +29,9 @@ const Salary = () => {
   const [payslips, setPayslips] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lopBreakdown, setLopBreakdown] = useState([]);
+  const [showLopBreakdown, setShowLopBreakdown] = useState(false);
+  const [showReimbursementBreakdown, setShowReimbursementBreakdown] = useState(false);
   const [estimate, setEstimate] = useState(null);
   const [loadingEstimate, setLoadingEstimate] = useState(false);
 
@@ -31,6 +40,47 @@ const Salary = () => {
     fetchExpenses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const latest = payslips[0];
+    if (!latest) {
+      setLopBreakdown([]);
+      return;
+    }
+
+    const fetchLopBreakdown = async () => {
+      try {
+        const [attendanceRes, leavesRes, flexRes] = await Promise.all([
+          attendanceAPI.getAttendance({ employeeId: user._id, month: latest.month, year: latest.year }),
+          leaveAPI.getEmployeeLeaves(user._id),
+          flexHoursAPI.getFlexHoursRequests({ employeeId: user._id })
+        ]);
+
+        const appliedFlexByDate = (flexRes.data.requests || [])
+          .filter((r) => r.status !== 'rejected')
+          .reduce((acc, r) => {
+            const key = new Date(r.date).toDateString();
+            acc[key] = (acc[key] || 0) + r.hoursRequested;
+            return acc;
+          }, {});
+
+        const rows = buildMonthAttendanceRows({
+          dateOfJoining: user.dateOfJoining,
+          attendance: attendanceRes.data.attendance || [],
+          leaves: leavesRes.data.leaves || [],
+          month: latest.month,
+          year: latest.year
+        });
+
+        setLopBreakdown(computeLopBreakdown(rows, appliedFlexByDate).breakdown);
+      } catch (error) {
+        console.error('Error computing LOP breakdown:', error);
+      }
+    };
+
+    fetchLopBreakdown();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payslips]);
 
   // If this month hasn't been processed yet, calculate a live estimate from the
   // employee's salary structure + attendance so far, rather than showing nothing
@@ -77,8 +127,12 @@ const Salary = () => {
         const reimbursementClaims = getReimbursementClaimsFor(month, year);
         const reimbursement = reimbursementClaims.reduce((sum, e) => sum + e.amount, 0);
         const salaryStructure = user.salaryStructure || {};
-        const { earningsTotal: customEarningsTotal, deductionsTotal: customDeductionsTotal } =
-          splitCustomSalaryFields(user.customSalaryFields);
+        const {
+          earnings: customEarnings,
+          deductions: customDeductions,
+          earningsTotal: customEarningsTotal,
+          deductionsTotal: customDeductionsTotal
+        } = splitCustomSalaryFields(user.customSalaryFields);
 
         const figures = computeSalaryFigures({
           basic: salaryStructure.basic,
@@ -104,6 +158,8 @@ const Salary = () => {
           lopBreakdown: breakdown,
           reimbursement,
           reimbursementClaims,
+          customEarnings,
+          customDeductions,
           ...figures
         });
       } catch (error) {
@@ -160,6 +216,7 @@ const Salary = () => {
 
   const latest = payslips[0];
   const latestReimbursement = latest ? getReimbursementsFor(latest.month, latest.year) : 0;
+  const latestReimbursementClaims = latest ? getReimbursementClaimsFor(latest.month, latest.year) : [];
 
   return (
     <div className="salary-page">
@@ -173,41 +230,215 @@ const Salary = () => {
           {loadingEstimate && <p className="loading-text">Calculating this month's salary...</p>}
 
           {estimate && (
-            <div
-              className="net-pay-card estimate-card salary-card-link"
-              onClick={() => navigate(`/salary/${estimate.month}/${estimate.year}`)}
-            >
-              <div>
-                <p className="net-pay-label">
-                  Estimated net pay · {MONTH_NAMES[estimate.month - 1]} {estimate.year}
-                </p>
-                <h2 className="net-pay-value">{formatCurrency(estimate.netPay)}</h2>
-                <p className="estimate-note">Calculated automatically from your attendance so far — not yet processed by your manager</p>
+            <>
+              <div className="net-pay-card estimate-card">
+                <div>
+                  <p className="net-pay-label">
+                    Estimated net pay · {MONTH_NAMES[estimate.month - 1]} {estimate.year}
+                  </p>
+                  <h2 className="net-pay-value">{formatCurrency(estimate.netPay)}</h2>
+                  <p className="estimate-note">Calculated automatically from your attendance so far — not yet processed by your manager</p>
+                </div>
+                <span className="status-badge estimate">Estimated</span>
               </div>
-              <span className="status-badge estimate">Estimated</span>
-            </div>
+
+              <div className="breakdown-grid">
+                <div className="breakdown-card">
+                  <h3 className="breakdown-title">Earnings</h3>
+                  <div className="breakdown-row">
+                    <span>Basic</span>
+                    <span>{formatCurrency(estimate.basic)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>HRA</span>
+                    <span>{formatCurrency(estimate.hra)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>Special Allowance</span>
+                    <span>{formatCurrency(estimate.specialAllowance)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>Reimbursement</span>
+                    <span>{formatCurrency(estimate.reimbursement)}</span>
+                  </div>
+                  {estimate.customEarnings.map((f) => (
+                    <div className="breakdown-row" key={f.name}>
+                      <span>{f.name}</span>
+                      <span>{formatCurrency(f.value)}</span>
+                    </div>
+                  ))}
+                  <div className="breakdown-row total-row">
+                    <span>Gross Earnings</span>
+                    <span>{formatCurrency(estimate.grossEarnings)}</span>
+                  </div>
+                </div>
+
+                <div className="breakdown-card">
+                  <h3 className="breakdown-title">Deductions</h3>
+                  <div className="breakdown-row">
+                    <span>PF (12% of basic)</span>
+                    <span className="negative">-{formatCurrency(estimate.pf)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>Professional Tax</span>
+                    <span className="negative">-{formatCurrency(estimate.professionalTax)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>TDS</span>
+                    <span className="negative">-{formatCurrency(estimate.tds)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>LOP ({estimate.lopDays} days)</span>
+                    <span className="negative">-{formatCurrency(estimate.lopAmount)}</span>
+                  </div>
+                  {estimate.lopBreakdown.length > 0 && (
+                    <div className="lop-breakdown">
+                      {estimate.lopBreakdown.map((b) => (
+                        <div key={b.date.toISOString()} className="lop-breakdown-row">
+                          <span>{b.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          <span>{LOP_TYPE_LABELS[b.type] || b.type}</span>
+                          <span>-{formatCurrency((estimate.basic / 30) * b.days)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {estimate.customDeductions.map((f) => (
+                    <div className="breakdown-row" key={f.name}>
+                      <span>{f.name}</span>
+                      <span className="negative">-{formatCurrency(f.value)}</span>
+                    </div>
+                  ))}
+                  <div className="breakdown-row total-row">
+                    <span>Total deductions</span>
+                    <span className="negative">-{formatCurrency(estimate.totalDeductions)}</span>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           {latest && (
-            <div
-              className="net-pay-card salary-card-link"
-              onClick={() => navigate(`/salary/${latest.month}/${latest.year}`)}
-            >
-              <div>
-                <p className="net-pay-label">
-                  Net pay · {MONTH_NAMES[latest.month - 1]} {latest.year}
-                </p>
-                <h2 className="net-pay-value">
-                  {formatCurrency(latest.netSalary + latestReimbursement)}
-                </h2>
+            <>
+              <div className="net-pay-card">
+                <div>
+                  <p className="net-pay-label">
+                    Net pay · {MONTH_NAMES[latest.month - 1]} {latest.year}
+                  </p>
+                  <h2 className="net-pay-value">
+                    {formatCurrency(latest.netSalary + latestReimbursement)}
+                  </h2>
+                </div>
+                <button className="download-btn" onClick={() => handleDownload(latest)}>
+                  ⬇ Download payslip
+                </button>
               </div>
-              <button
-                className="download-btn"
-                onClick={(e) => { e.stopPropagation(); handleDownload(latest); }}
-              >
-                ⬇ Download payslip
-              </button>
-            </div>
+
+              <div className="breakdown-grid">
+                <div className="breakdown-card">
+                  <h3 className="breakdown-title">Earnings</h3>
+                  <div className="breakdown-row">
+                    <span>Basic</span>
+                    <span>{formatCurrency(latest.earnings.basic)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>HRA</span>
+                    <span>{formatCurrency(latest.earnings.hra)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>Special Allowance</span>
+                    <span>{formatCurrency(latest.earnings.specialAllowance)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>
+                      Reimbursement
+                      {latestReimbursementClaims.length > 0 && (
+                        <button
+                          type="button"
+                          className="lop-why-link"
+                          onClick={() => setShowReimbursementBreakdown((prev) => !prev)}
+                        >
+                          {showReimbursementBreakdown ? 'Hide claims' : 'Why?'}
+                        </button>
+                      )}
+                    </span>
+                    <span>{formatCurrency(latestReimbursement)}</span>
+                  </div>
+                  {showReimbursementBreakdown && latestReimbursementClaims.length > 0 && (
+                    <div className="lop-breakdown">
+                      {latestReimbursementClaims.map((claim) => (
+                        <div key={claim._id} className="lop-breakdown-row">
+                          <span>{new Date(claim.date).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          <span>{claim.expenseType}</span>
+                          <span className="claim-amount">{formatCurrency(claim.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(latest.earnings.custom || []).map((f) => (
+                    <div className="breakdown-row" key={f.name}>
+                      <span>{f.name}</span>
+                      <span>{formatCurrency(f.value)}</span>
+                    </div>
+                  ))}
+                  <div className="breakdown-row total-row">
+                    <span>Gross Earnings</span>
+                    <span>{formatCurrency(latest.grossSalary + latestReimbursement)}</span>
+                  </div>
+                </div>
+
+                <div className="breakdown-card">
+                  <h3 className="breakdown-title">Deductions</h3>
+                  <div className="breakdown-row">
+                    <span>PF (12% of basic)</span>
+                    <span className="negative">-{formatCurrency(latest.deductions.pf)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>Professional Tax</span>
+                    <span className="negative">-{formatCurrency(latest.deductions.professionalTax)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>TDS</span>
+                    <span className="negative">-{formatCurrency(latest.deductions.tds)}</span>
+                  </div>
+                  <div className="breakdown-row">
+                    <span>
+                      LOP ({latest.deductions.lopDays} days)
+                      {lopBreakdown.length > 0 && (
+                        <button
+                          type="button"
+                          className="lop-why-link"
+                          onClick={() => setShowLopBreakdown((prev) => !prev)}
+                        >
+                          {showLopBreakdown ? 'Hide reason' : 'Why?'}
+                        </button>
+                      )}
+                    </span>
+                    <span className="negative">-{formatCurrency(latest.deductions.lopAmount)}</span>
+                  </div>
+                  {showLopBreakdown && lopBreakdown.length > 0 && (
+                    <div className="lop-breakdown">
+                      {lopBreakdown.map((b) => (
+                        <div key={b.date.toISOString()} className="lop-breakdown-row">
+                          <span>{b.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                          <span>{LOP_TYPE_LABELS[b.type] || b.type}</span>
+                          <span>-{formatCurrency((latest.earnings.basic / 30) * b.days)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {(latest.deductions.custom || []).map((f) => (
+                    <div className="breakdown-row" key={f.name}>
+                      <span>{f.name}</span>
+                      <span className="negative">-{formatCurrency(f.value)}</span>
+                    </div>
+                  ))}
+                  <div className="breakdown-row total-row">
+                    <span>Total deductions</span>
+                    <span className="negative">-{formatCurrency(latest.totalDeductions)}</span>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           <div className="history-card">

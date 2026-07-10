@@ -136,6 +136,19 @@ const SalaryDetail = () => {
   const customEarnings = payslip ? (payslip.earnings.custom || []) : (estimate?.customEarnings || []);
   const customDeductions = payslip ? (payslip.deductions.custom || []) : (estimate?.customDeductions || []);
 
+  // If this payslip's month is still in progress, attendance since it was
+  // processed wouldn't be reflected until someone reprocesses it — so show the
+  // live LOP figure (already fetched fresh above) instead of the frozen one.
+  const today = new Date();
+  const isOngoingMonth = monthNum === today.getMonth() + 1 && yearNum === today.getFullYear();
+  const liveLopDays = lopBreakdown.reduce((sum, b) => sum + b.days, 0);
+  const liveLopAmount = liveLopDays > 0 ? Math.round(dailyRate * liveLopDays) : 0;
+  const displayLopDays = payslip && isOngoingMonth ? liveLopDays : (payslip?.deductions.lopDays ?? estimate?.lopDays ?? 0);
+  const displayLopAmount = payslip && isOngoingMonth ? liveLopAmount : (payslip?.deductions.lopAmount ?? estimate?.lopAmount ?? 0);
+  const lopAdjustment = payslip ? displayLopAmount - payslip.deductions.lopAmount : 0;
+  const displayTotalDeductions = payslip ? payslip.totalDeductions + lopAdjustment : (estimate?.totalDeductions || 0);
+  const displayNetSalary = payslip ? payslip.netSalary - lopAdjustment : 0;
+
   const handleDownload = () => {
     if (!payslip) return;
     downloadPayslipPdf({
@@ -169,7 +182,7 @@ const SalaryDetail = () => {
                 {estimate ? 'Estimated net pay' : 'Net pay'} · {MONTH_NAMES[monthNum - 1]} {yearNum}
               </p>
               <h2 className="net-pay-value">
-                {formatCurrency(estimate ? estimate.netPay : payslip.netSalary + reimbursement)}
+                {formatCurrency(estimate ? estimate.netPay : displayNetSalary + reimbursement)}
               </h2>
               {estimate && (
                 <p className="estimate-note">Calculated automatically from your attendance so far — not yet processed by your manager</p>
@@ -246,8 +259,8 @@ const SalaryDetail = () => {
                 <span className="negative">-{formatCurrency(payslip ? payslip.deductions.tds : estimate.tds)}</span>
               </div>
               <div className="breakdown-row">
-                <span>LOP ({payslip ? payslip.deductions.lopDays : estimate.lopDays} days)</span>
-                <span className="negative">-{formatCurrency(payslip ? payslip.deductions.lopAmount : estimate.lopAmount)}</span>
+                <span>LOP ({displayLopDays} days)</span>
+                <span className="negative">-{formatCurrency(displayLopAmount)}</span>
               </div>
               {lopBreakdown.length > 0 && (
                 <div className="lop-breakdown">
@@ -269,7 +282,7 @@ const SalaryDetail = () => {
               <div className="breakdown-row total-row">
                 <span>Total deductions</span>
                 <span className="negative">
-                  -{formatCurrency(payslip ? payslip.totalDeductions : estimate.totalDeductions)}
+                  -{formatCurrency(displayTotalDeductions)}
                 </span>
               </div>
             </div>

@@ -218,6 +218,21 @@ const Salary = () => {
   const latestReimbursement = latest ? getReimbursementsFor(latest.month, latest.year) : 0;
   const latestReimbursementClaims = latest ? getReimbursementClaimsFor(latest.month, latest.year) : [];
 
+  // A payslip for the month still in progress was processed against attendance
+  // as of that moment — absences since then wouldn't show up unless someone
+  // reprocesses it. Swap in the live LOP figure for the ongoing month so the
+  // deduction actually reflects today's attendance, same as the breakdown list
+  // below it already does.
+  const today = new Date();
+  const latestIsOngoingMonth = !!latest && latest.month === today.getMonth() + 1 && latest.year === today.getFullYear();
+  const liveLopDays = lopBreakdown.reduce((sum, b) => sum + b.days, 0);
+  const liveLopAmount = liveLopDays > 0 && latest ? Math.round((latest.earnings.basic / 30) * liveLopDays) : 0;
+  const displayLopDays = latestIsOngoingMonth ? liveLopDays : (latest?.deductions.lopDays || 0);
+  const displayLopAmount = latestIsOngoingMonth ? liveLopAmount : (latest?.deductions.lopAmount || 0);
+  const lopAdjustment = displayLopAmount - (latest?.deductions.lopAmount || 0);
+  const displayTotalDeductions = (latest?.totalDeductions || 0) + lopAdjustment;
+  const displayNetSalary = (latest?.netSalary || 0) - lopAdjustment;
+
   return (
     <div className="salary-page">
       <p className="eyebrow">Payroll</p>
@@ -325,7 +340,7 @@ const Salary = () => {
                     Net pay · {MONTH_NAMES[latest.month - 1]} {latest.year}
                   </p>
                   <h2 className="net-pay-value">
-                    {formatCurrency(latest.netSalary + latestReimbursement)}
+                    {formatCurrency(displayNetSalary + latestReimbursement)}
                   </h2>
                 </div>
                 <button className="download-btn" onClick={() => handleDownload(latest)}>
@@ -402,7 +417,7 @@ const Salary = () => {
                   </div>
                   <div className="breakdown-row">
                     <span>
-                      LOP ({latest.deductions.lopDays} days)
+                      LOP ({displayLopDays} days)
                       {lopBreakdown.length > 0 && (
                         <button
                           type="button"
@@ -413,7 +428,7 @@ const Salary = () => {
                         </button>
                       )}
                     </span>
-                    <span className="negative">-{formatCurrency(latest.deductions.lopAmount)}</span>
+                    <span className="negative">-{formatCurrency(displayLopAmount)}</span>
                   </div>
                   {showLopBreakdown && lopBreakdown.length > 0 && (
                     <div className="lop-breakdown">
@@ -434,7 +449,7 @@ const Salary = () => {
                   ))}
                   <div className="breakdown-row total-row">
                     <span>Total deductions</span>
-                    <span className="negative">-{formatCurrency(latest.totalDeductions)}</span>
+                    <span className="negative">-{formatCurrency(displayTotalDeductions)}</span>
                   </div>
                 </div>
               </div>
@@ -461,6 +476,9 @@ const Salary = () => {
                     payslips.map((p) => {
                       const reimbursement = getReimbursementsFor(p.month, p.year);
                       const status = getStatusLabel(p.paymentStatus);
+                      const isOngoing = p._id === latest?._id && latestIsOngoingMonth;
+                      const rowTotalDeductions = isOngoing ? displayTotalDeductions : p.totalDeductions;
+                      const rowNetSalary = isOngoing ? displayNetSalary : p.netSalary;
 
                       return (
                         <tr
@@ -470,9 +488,9 @@ const Salary = () => {
                         >
                           <td>{MONTH_NAMES[p.month - 1]} {p.year}</td>
                           <td>{formatCurrency(p.grossSalary)}</td>
-                          <td className="negative">-{formatCurrency(p.totalDeductions)}</td>
+                          <td className="negative">-{formatCurrency(rowTotalDeductions)}</td>
                           <td>{reimbursement > 0 ? formatCurrency(reimbursement) : '-'}</td>
-                          <td className="net-cell">{formatCurrency(p.netSalary + reimbursement)}</td>
+                          <td className="net-cell">{formatCurrency(rowNetSalary + reimbursement)}</td>
                           <td>
                             {status && <span className={`status-badge ${status.className}`}>{status.label}</span>}
                           </td>

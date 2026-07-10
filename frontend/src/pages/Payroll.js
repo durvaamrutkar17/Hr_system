@@ -130,6 +130,14 @@ const Payroll = () => {
   const { message, showToast } = useToast();
 
   const buildRows = useCallback((employeeList, attendanceList, leaveList, flexList, expenseList, payslipList) => {
+    const today = new Date();
+    // A payslip for the month that's still in progress shouldn't freeze LOP at
+    // whatever it was when last processed — attendance keeps happening for the
+    // rest of the month, so keep the LOP figure live until the month is over
+    // (a manager reprocessing later then bakes the final count into the payslip).
+    const isOngoingMonth = selectedYear > today.getFullYear()
+      || (selectedYear === today.getFullYear() && selectedMonth >= today.getMonth() + 1);
+
     const nextRows = {};
     employeeList.forEach((emp) => {
       const payslip = payslipList.find((p) => idOf(p.employeeId) === emp._id) || null;
@@ -150,7 +158,7 @@ const Payroll = () => {
           specialAllowance: payslip.earnings.specialAllowance,
           professionalTax: payslip.deductions.professionalTax,
           tds: payslip.deductions.tds,
-          lopDays: payslip.deductions.lopDays,
+          lopDays: isOngoingMonth ? lopInfo.lopDays : payslip.deductions.lopDays,
           lopBreakdown: lopInfo.breakdown,
           reimbursement,
           reimbursementClaims,
@@ -666,7 +674,7 @@ const Payroll = () => {
                                       <div key={b.date.toISOString()} className="lop-breakdown-row">
                                         <span>{b.date.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                         <span>{LOP_TYPE_LABELS[b.type] || b.type}</span>
-                                        <span>-{b.days} day{b.days !== 1 ? 's' : ''}</span>
+                                        <span>-{formatCurrency((toNumber(row.basic) / 30) * b.days)}</span>
                                       </div>
                                     ))}
                                   </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { attendanceAPI, userAPI, leaveAPI, flexHoursAPI } from '../services/api';
 import { buildMonthAttendanceRows, getDayStatus } from '../utils/attendanceCalendar';
@@ -155,7 +155,7 @@ const TeamAttendance = () => {
       return acc;
     }, {});
 
-  const flexRecords = attendance
+  const flexRecords = useMemo(() => attendance
     .filter((r) => r.checkInTime && r.checkOutTime)
     .map((r) => {
       const dayCap = new Date(r.date).getDay() === 6 ? 5 : 9;
@@ -163,41 +163,47 @@ const TeamAttendance = () => {
       return { ...r, flex };
     })
     .filter((r) => r.flex > 0)
-    .sort((a, b) => new Date(b.date) - new Date(a.date));
+    .sort((a, b) => new Date(b.date) - new Date(a.date)), [attendance]);
 
   const totalFlexHours = flexRecords.reduce((sum, r) => sum + r.flex, 0);
   const pendingFlexCount = flexRequests.filter((r) => r.status === 'pending').length;
   const selectedEmployee = employees.find((e) => e._id === selectedEmployeeId);
 
-  const employeesToShow = isAllSelected ? employees : selectedEmployee ? [selectedEmployee] : [];
-
-  const attendanceByEmployee = attendance.reduce((acc, r) => {
+  const attendanceByEmployee = useMemo(() => attendance.reduce((acc, r) => {
     const empId = r.employeeId?._id || r.employeeId;
     (acc[empId] = acc[empId] || []).push(r);
     return acc;
-  }, {});
-  const leavesByEmployee = leaves.reduce((acc, l) => {
+  }, {}), [attendance]);
+  const leavesByEmployee = useMemo(() => leaves.reduce((acc, l) => {
     const empId = l.employeeId?._id || l.employeeId;
     (acc[empId] = acc[empId] || []).push(l);
     return acc;
-  }, {});
+  }, {}), [leaves]);
 
-  const combinedRows = employeesToShow.flatMap((emp) =>
-    buildMonthAttendanceRows({
-      dateOfJoining: emp.dateOfJoining,
-      attendance: attendanceByEmployee[emp._id] || [],
-      leaves: leavesByEmployee[emp._id] || [],
-      month: selectedMonth,
-      year: selectedYear
-    }).map((row) => ({ ...row, employee: emp }))
-  ).sort((a, b) => b.date - a.date);
+  // Rebuilding every employee's full month of day-by-day rows is the heaviest
+  // computation on this page — memoized so simple UI interactions like
+  // expanding a row don't retrigger it for the whole team.
+  const combinedRows = useMemo(() => {
+    const employeesToShow = isAllSelected ? employees : selectedEmployee ? [selectedEmployee] : [];
+    return employeesToShow.flatMap((emp) =>
+      buildMonthAttendanceRows({
+        dateOfJoining: emp.dateOfJoining,
+        attendance: attendanceByEmployee[emp._id] || [],
+        leaves: leavesByEmployee[emp._id] || [],
+        month: selectedMonth,
+        year: selectedYear
+      }).map((row) => ({ ...row, employee: emp }))
+    ).sort((a, b) => b.date - a.date);
+  }, [isAllSelected, employees, selectedEmployee, attendanceByEmployee, leavesByEmployee, selectedMonth, selectedYear]);
 
-  const displayedRows = selectedDate
-    ? combinedRows.filter((row) => {
-        const [y, m, d] = selectedDate.split('-').map(Number);
-        return row.date.getFullYear() === y && row.date.getMonth() + 1 === m && row.date.getDate() === d;
-      })
-    : combinedRows;
+  const displayedRows = useMemo(() => (
+    selectedDate
+      ? combinedRows.filter((row) => {
+          const [y, m, d] = selectedDate.split('-').map(Number);
+          return row.date.getFullYear() === y && row.date.getMonth() + 1 === m && row.date.getDate() === d;
+        })
+      : combinedRows
+  ), [combinedRows, selectedDate]);
 
   return (
     <div className="team-attendance-page">

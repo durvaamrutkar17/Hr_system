@@ -230,6 +230,34 @@
   border: 1px dashed #ccc;
 }
 
+.salary-card-link {
+  cursor: pointer;
+  transition: box-shadow 0.2s ease;
+}
+
+.salary-card-link:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.salary-row-link {
+  cursor: pointer;
+}
+
+.salary-back-btn {
+  background: none;
+  border: none;
+  color: #1b4d4d;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  margin-bottom: 15px;
+}
+
+.salary-back-btn:hover {
+  text-decoration: underline;
+}
+
 .estimate-note {
   margin: 8px 0 0 0;
   color: #888;

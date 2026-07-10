@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard';
 import Leave from './pages/Leave';
 import Announcements from './pages/Announcements';
 import Salary from './pages/Salary';
+import SalaryDetail from './pages/SalaryDetail';
 import Attendance from './pages/Attendance';
 import Reimbursement from './pages/Reimbursement';
 import Documents from './pages/Documents';
@@ -80,6 +81,7 @@ const AppContent = () => {
                 <Route path="/leave" element={<Leave />} />
                 <Route path="/announcements" element={<Announcements />} />
                 <Route path="/salary" element={<Salary />} />
+                <Route path="/salary/:month/:year" element={<SalaryDetail />} />
                 <Route path="/attendance" element={<Attendance />} />
                 <Route path="/documents" element={<Documents />} />
                 <Route path="/my-assets" element={<MyAssets />} />

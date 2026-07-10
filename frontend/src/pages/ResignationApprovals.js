@@ -86,7 +86,14 @@ const ResignationApprovals = () => {
     }
   };
 
-  const filtered = filter === 'all' ? resignations : resignations.filter((r) => r.status === filter);
+  // "Pending" is an action-needed view, not just the literal 'pending' status —
+  // an 'approved' resignation still needs clearance and the final "Mark as
+  // resigned" step, so it belongs here too until it's actually resigned.
+  const filtered = filter === 'all'
+    ? resignations
+    : filter === 'pending'
+      ? resignations.filter((r) => r.status === 'pending' || r.status === 'approved')
+      : resignations.filter((r) => r.status === filter);
 
   return (
     <div className="resignation-approvals-page">

@@ -19,14 +19,22 @@ const payslipSchema = new mongoose.Schema({
   earnings: {
     basic: { type: Number, required: [true, 'Basic salary is required'] },
     hra: { type: Number, default: 0 },
-    specialAllowance: { type: Number, default: 0 }
+    specialAllowance: { type: Number, default: 0 },
+    custom: {
+      type: [{ name: String, value: Number }],
+      default: []
+    }
   },
   deductions: {
     pf: { type: Number, default: 0 },
     professionalTax: { type: Number, default: 0 },
     tds: { type: Number, default: 0 },
     lopDays: { type: Number, default: 0 },
-    lopAmount: { type: Number, default: 0 }
+    lopAmount: { type: Number, default: 0 },
+    custom: {
+      type: [{ name: String, value: Number }],
+      default: []
+    }
   },
   grossSalary: {
     type: Number,

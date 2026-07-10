@@ -159,13 +159,15 @@ export const downloadPayslipPdf = ({ payslip, employeeName, designation, employe
     ['Basic', formatCurrencyPdf(payslip.earnings.basic)],
     ['House Rent Allowance', formatCurrencyPdf(payslip.earnings.hra)],
     ['Special Allowance', formatCurrencyPdf(payslip.earnings.specialAllowance)],
-    ['Reimbursement', formatCurrencyPdf(reimbursement)]
+    ['Reimbursement', formatCurrencyPdf(reimbursement)],
+    ...(payslip.earnings.custom || []).map((f) => [f.name, formatCurrencyPdf(f.value)])
   ];
   const deductionRows = [
     ['Income Tax (TDS)', formatCurrencyPdf(payslip.deductions.tds)],
     ['Provident Fund', formatCurrencyPdf(payslip.deductions.pf)],
     ['Professional Tax', formatCurrencyPdf(payslip.deductions.professionalTax)],
-    [`LOP (${lopDays} days)`, formatCurrencyPdf(payslip.deductions.lopAmount)]
+    [`LOP (${lopDays} days)`, formatCurrencyPdf(payslip.deductions.lopAmount)],
+    ...(payslip.deductions.custom || []).map((f) => [f.name, formatCurrencyPdf(f.value)])
   ];
   const rowCount = Math.max(earningsRows.length, deductionRows.length);
   const rowH = 7;

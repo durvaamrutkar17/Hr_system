@@ -47,12 +47,16 @@ exports.createEmployee = async (req, res) => {
 
     const toNonNegative = (value) => Math.max(0, Number(value) || 0);
 
-    const customFields = {};
+    const customFields = [];
     if (Array.isArray(customSalaryFields)) {
       customSalaryFields.forEach((field) => {
         const name = (field?.name || '').trim();
         if (name) {
-          customFields[name] = field?.value != null ? String(field.value) : '';
+          customFields.push({
+            name,
+            value: toNonNegative(field?.value),
+            type: field?.type === 'deduction' ? 'deduction' : 'earning'
+          });
         }
       });
     }

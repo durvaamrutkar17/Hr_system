@@ -4,7 +4,7 @@ import { payslipAPI, expenseAPI, attendanceAPI, leaveAPI, flexHoursAPI } from '.
 import { useAuth } from '../context/AuthContext';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
 import { buildMonthAttendanceRows, computeLopBreakdown } from '../utils/attendanceCalendar';
-import { computeSalaryFigures } from '../utils/salaryCalc';
+import { computeSalaryFigures, splitCustomSalaryFields } from '../utils/salaryCalc';
 import './Salary.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -77,6 +77,8 @@ const Salary = () => {
         const reimbursementClaims = getReimbursementClaimsFor(month, year);
         const reimbursement = reimbursementClaims.reduce((sum, e) => sum + e.amount, 0);
         const salaryStructure = user.salaryStructure || {};
+        const { earningsTotal: customEarningsTotal, deductionsTotal: customDeductionsTotal } =
+          splitCustomSalaryFields(user.customSalaryFields);
 
         const figures = computeSalaryFigures({
           basic: salaryStructure.basic,
@@ -85,7 +87,9 @@ const Salary = () => {
           professionalTax: salaryStructure.professionalTax,
           tds: salaryStructure.tds,
           lopDays,
-          reimbursement
+          reimbursement,
+          customEarnings: customEarningsTotal,
+          customDeductions: customDeductionsTotal
         });
 
         setEstimate({

@@ -28,10 +28,19 @@ exports.createPayslip = async (req, res) => {
   try {
     const { employeeId, month, year, earnings, deductions } = req.body;
 
+    const sanitizeCustom = (list) =>
+      Array.isArray(list)
+        ? list
+          .filter((f) => (f?.name || '').trim())
+          .map((f) => ({ name: f.name.trim(), value: Math.max(0, Number(f.value) || 0) }))
+        : [];
+
     const basic = earnings?.basic || 0;
     const hra = earnings?.hra || 0;
     const specialAllowance = earnings?.specialAllowance || 0;
-    const grossSalary = basic + hra + specialAllowance;
+    const customEarnings = sanitizeCustom(earnings?.custom);
+    const customEarningsTotal = customEarnings.reduce((sum, f) => sum + f.value, 0);
+    const grossSalary = basic + hra + specialAllowance + customEarningsTotal;
 
     const pf = Math.round(basic * 0.12);
     const professionalTax = deductions?.professionalTax || 0;
@@ -39,14 +48,16 @@ exports.createPayslip = async (req, res) => {
     const lopDays = deductions?.lopDays || 0;
     // Per-day rate off a 30-day month, standard payroll convention — not trusted from the client
     const lopAmount = lopDays > 0 ? Math.round((basic / 30) * lopDays) : 0;
-    const totalDeductions = pf + professionalTax + tds + lopAmount;
+    const customDeductions = sanitizeCustom(deductions?.custom);
+    const customDeductionsTotal = customDeductions.reduce((sum, f) => sum + f.value, 0);
+    const totalDeductions = pf + professionalTax + tds + lopAmount + customDeductionsTotal;
     const netSalary = grossSalary - totalDeductions;
 
     const payslip = await Payslip.findOneAndUpdate(
       { employeeId, month, year },
       {
-        earnings: { basic, hra, specialAllowance },
-        deductions: { pf, professionalTax, tds, lopDays, lopAmount },
+        earnings: { basic, hra, specialAllowance, custom: customEarnings },
+        deductions: { pf, professionalTax, tds, lopDays, lopAmount, custom: customDeductions },
         grossSalary,
         totalDeductions,
         netSalary

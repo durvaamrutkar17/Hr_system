@@ -55,6 +55,7 @@ const Employees = () => {
   const [customFields, setCustomFields] = useState([]);
   const [addingField, setAddingField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldType, setNewFieldType] = useState('earning');
   const { message, showToast } = useToast();
 
   useEffect(() => {
@@ -125,14 +126,16 @@ const Employees = () => {
 
   const handleConfirmAddField = () => {
     if (!newFieldName.trim()) return;
-    setCustomFields((prev) => [...prev, { id: Date.now(), name: newFieldName.trim(), value: '' }]);
+    setCustomFields((prev) => [...prev, { id: Date.now(), name: newFieldName.trim(), value: '', type: newFieldType }]);
     setNewFieldName('');
+    setNewFieldType('earning');
     setAddingField(false);
   };
 
   const handleCancelAddField = () => {
     setAddingField(false);
     setNewFieldName('');
+    setNewFieldType('earning');
   };
 
   const handleCustomFieldValueChange = (id, value) => {
@@ -160,7 +163,7 @@ const Employees = () => {
           professionalTax: Number(employeeForm.salaryStructure.professionalTax) || 0,
           tds: Number(employeeForm.salaryStructure.tds) || 0
         },
-        customSalaryFields: customFields.map(({ name, value }) => ({ name, value }))
+        customSalaryFields: customFields.map(({ name, value, type }) => ({ name, value, type }))
       });
       showToast('success', 'Employee added');
       setShowAddModal(false);
@@ -326,6 +329,14 @@ const Employees = () => {
                         if (e.key === 'Escape') handleCancelAddField();
                       }}
                     />
+                    <select
+                      className="add-field-type"
+                      value={newFieldType}
+                      onChange={(e) => setNewFieldType(e.target.value)}
+                    >
+                      <option value="earning">Earning</option>
+                      <option value="deduction">Deduction</option>
+                    </select>
                     <button type="button" className="add-field-confirm-btn" onClick={handleConfirmAddField} aria-label="Add field">✓</button>
                     <button type="button" className="add-field-cancel-btn" onClick={handleCancelAddField} aria-label="Cancel">✕</button>
                   </div>
@@ -383,20 +394,44 @@ const Employees = () => {
                 </div>
               </div>
 
-              {customFields.length > 0 && (
-                <div className="structure-form">
-                  {customFields.map((field) => (
-                    <div className="structure-group" key={field.id}>
-                      <label>{field.name}</label>
-                      <input
-                        type="text"
-                        value={field.value}
-                        onChange={(e) => handleCustomFieldValueChange(field.id, e.target.value)}
-                        placeholder="Enter value"
-                      />
-                    </div>
-                  ))}
-                </div>
+              {customFields.some((f) => f.type !== 'deduction') && (
+                <>
+                  <p className="modal-section-label custom-fields-subhead">Additional earnings</p>
+                  <div className="structure-form">
+                    {customFields.filter((f) => f.type !== 'deduction').map((field) => (
+                      <div className="structure-group" key={field.id}>
+                        <label>{field.name}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={field.value}
+                          onChange={(e) => handleCustomFieldValueChange(field.id, e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {customFields.some((f) => f.type === 'deduction') && (
+                <>
+                  <p className="modal-section-label custom-fields-subhead">Additional deductions</p>
+                  <div className="structure-form">
+                    {customFields.filter((f) => f.type === 'deduction').map((field) => (
+                      <div className="structure-group" key={field.id}>
+                        <label>{field.name}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          value={field.value}
+                          onChange={(e) => handleCustomFieldValueChange(field.id, e.target.value)}
+                          placeholder="0"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
 
               <div className="modal-actions">

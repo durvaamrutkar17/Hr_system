@@ -14,6 +14,7 @@ import {
 } from '../services/api';
 import { buildMonthAttendanceRows, summarizeMonthRows, getDayStatus } from '../utils/attendanceCalendar';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
+import { splitCustomSalaryFields } from '../utils/salaryCalc';
 import './ManagerDashboard.css';
 import './Attendance.css';
 import './Salary.css';
@@ -146,6 +147,7 @@ const EmployeeProfile = () => {
 
   const { presentCount } = summarizeMonthRows(rows, appliedFlexByDate);
   const totalHours = attendance.reduce((sum, r) => sum + (r.hoursWorked || 0), 0);
+  const { earnings: customEarnings, deductions: customDeductions } = splitCustomSalaryFields(employee?.customSalaryFields);
 
   const getReimbursementsFor = (month, year) =>
     expenses
@@ -588,6 +590,12 @@ const EmployeeProfile = () => {
                   <span>Special Allowance</span>
                   <span>{formatCurrency(latestPayslip.earnings?.specialAllowance)}</span>
                 </div>
+                {(latestPayslip.earnings?.custom || []).map((f) => (
+                  <div className="breakdown-row" key={f.name}>
+                    <span>{f.name}</span>
+                    <span>{formatCurrency(f.value)}</span>
+                  </div>
+                ))}
                 <div className="breakdown-row total-row">
                   <span>Gross Earnings</span>
                   <span>{formatCurrency(latestPayslip.grossSalary)}</span>
@@ -611,6 +619,12 @@ const EmployeeProfile = () => {
                   <span>LOP ({latestPayslip.deductions?.lopDays || 0} days)</span>
                   <span className="negative">-{formatCurrency(latestPayslip.deductions?.lopAmount)}</span>
                 </div>
+                {(latestPayslip.deductions?.custom || []).map((f) => (
+                  <div className="breakdown-row" key={f.name}>
+                    <span>{f.name}</span>
+                    <span className="negative">-{formatCurrency(f.value)}</span>
+                  </div>
+                ))}
                 <div className="breakdown-row total-row">
                   <span>Total deductions</span>
                   <span className="negative">-{formatCurrency(latestPayslip.totalDeductions)}</span>
@@ -635,6 +649,12 @@ const EmployeeProfile = () => {
                   <p className="detail-label">Special Allowance</p>
                   <p className="detail-value">{formatCurrency(employee.salaryStructure.specialAllowance)}</p>
                 </div>
+                {customEarnings.map((f) => (
+                  <div className="detail-field" key={f.name}>
+                    <p className="detail-label">{f.name}</p>
+                    <p className="detail-value">{formatCurrency(f.value)}</p>
+                  </div>
+                ))}
                 <div className="detail-field">
                   <p className="detail-label">Professional Tax</p>
                   <p className="detail-value">{formatCurrency(employee.salaryStructure.professionalTax)}</p>
@@ -643,19 +663,15 @@ const EmployeeProfile = () => {
                   <p className="detail-label">TDS</p>
                   <p className="detail-value">{formatCurrency(employee.salaryStructure.tds)}</p>
                 </div>
+                {customDeductions.map((f) => (
+                  <div className="detail-field" key={f.name}>
+                    <p className="detail-label">{f.name}</p>
+                    <p className="detail-value">{formatCurrency(f.value)}</p>
+                  </div>
+                ))}
               </div>
             )}
           </>
-        )}
-        {!loadingDetail && employee?.customSalaryFields && Object.keys(employee.customSalaryFields).length > 0 && (
-          <div className="detail-grid custom-fields-grid">
-            {Object.entries(employee.customSalaryFields).map(([name, value]) => (
-              <div className="detail-field" key={name}>
-                <p className="detail-label">{name}</p>
-                <p className="detail-value">{value || '-'}</p>
-              </div>
-            ))}
-          </div>
         )}
       </div>
 

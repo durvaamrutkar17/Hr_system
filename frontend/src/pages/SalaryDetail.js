@@ -4,7 +4,7 @@ import { payslipAPI, expenseAPI, attendanceAPI, leaveAPI, flexHoursAPI } from '.
 import { useAuth } from '../context/AuthContext';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
 import { buildMonthAttendanceRows, computeLopBreakdown } from '../utils/attendanceCalendar';
-import { computeSalaryFigures } from '../utils/salaryCalc';
+import { computeSalaryFigures, splitCustomSalaryFields } from '../utils/salaryCalc';
 import './Salary.css';
 
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
@@ -86,6 +86,12 @@ const SalaryDetail = () => {
           if (isCurrentMonth) {
             const salaryStructure = user.salaryStructure || {};
             const reimbursement = claims.reduce((sum, e) => sum + e.amount, 0);
+            const {
+              earnings: customEarnings,
+              deductions: customDeductions,
+              earningsTotal: customEarningsTotal,
+              deductionsTotal: customDeductionsTotal
+            } = splitCustomSalaryFields(user.customSalaryFields);
             const figures = computeSalaryFigures({
               basic: salaryStructure.basic,
               hra: salaryStructure.hra,
@@ -93,7 +99,9 @@ const SalaryDetail = () => {
               professionalTax: salaryStructure.professionalTax,
               tds: salaryStructure.tds,
               lopDays,
-              reimbursement
+              reimbursement,
+              customEarnings: customEarningsTotal,
+              customDeductions: customDeductionsTotal
             });
             setEstimate({
               basic: salaryStructure.basic || 0,
@@ -103,6 +111,8 @@ const SalaryDetail = () => {
               tds: salaryStructure.tds || 0,
               lopDays,
               reimbursement,
+              customEarnings,
+              customDeductions,
               ...figures
             });
           } else {
@@ -123,6 +133,8 @@ const SalaryDetail = () => {
   const reimbursement = reimbursementClaims.reduce((sum, e) => sum + e.amount, 0);
   const basic = payslip ? payslip.earnings.basic : estimate?.basic || 0;
   const dailyRate = basic / 30;
+  const customEarnings = payslip ? (payslip.earnings.custom || []) : (estimate?.customEarnings || []);
+  const customDeductions = payslip ? (payslip.deductions.custom || []) : (estimate?.customDeductions || []);
 
   const handleDownload = () => {
     if (!payslip) return;
@@ -205,6 +217,12 @@ const SalaryDetail = () => {
                   ))}
                 </div>
               )}
+              {customEarnings.map((f) => (
+                <div className="breakdown-row" key={f.name}>
+                  <span>{f.name}</span>
+                  <span>{formatCurrency(f.value)}</span>
+                </div>
+              ))}
               <div className="breakdown-row total-row">
                 <span>Gross Earnings</span>
                 <span>
@@ -242,6 +260,12 @@ const SalaryDetail = () => {
                   ))}
                 </div>
               )}
+              {customDeductions.map((f) => (
+                <div className="breakdown-row" key={f.name}>
+                  <span>{f.name}</span>
+                  <span className="negative">-{formatCurrency(f.value)}</span>
+                </div>
+              ))}
               <div className="breakdown-row total-row">
                 <span>Total deductions</span>
                 <span className="negative">

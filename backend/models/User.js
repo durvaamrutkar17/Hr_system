@@ -84,9 +84,12 @@ const userSchema = new mongoose.Schema({
     tds: { type: Number, default: 0 }
   },
   customSalaryFields: {
-    type: Map,
-    of: String,
-    default: {}
+    type: [{
+      name: { type: String, required: true, trim: true },
+      value: { type: Number, default: 0 },
+      type: { type: String, enum: ['earning', 'deduction'], default: 'earning' }
+    }],
+    default: []
   },
   createdAt: {
     type: Date,

@@ -301,6 +301,14 @@
   font-size: 13px;
 }
 
+.custom-fields-subhead {
+  margin: 14px 0 -2px 0;
+  color: #888;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .structure-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -544,6 +552,17 @@
   font-family: inherit;
   width: 140px;
   color: #333;
+}
+
+.add-field-type {
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  outline: none;
+  font-size: 12px;
+  font-family: inherit;
+  color: #333;
+  padding: 3px 6px;
+  background: white;
 }
 
 .add-field-confirm-btn,

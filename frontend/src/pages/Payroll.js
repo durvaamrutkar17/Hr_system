@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { userAPI, attendanceAPI, leaveAPI, flexHoursAPI, expenseAPI, payslipAPI, FILE_BASE_URL } from '../services/api';
 import { buildMonthAttendanceRows, computeLopBreakdown } from '../utils/attendanceCalendar';
-import { computeSalaryFigures } from '../utils/salaryCalc';
+import { computeSalaryFigures, splitCustomSalaryFields } from '../utils/salaryCalc';
 import { downloadPayslipPdf } from '../utils/payslipPdf';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
@@ -62,7 +62,9 @@ const computeRow = (row) => computeSalaryFigures({
   professionalTax: toNumber(row.professionalTax),
   tds: toNumber(row.tds),
   lopDays: toNumber(row.lopDays),
-  reimbursement: toNumber(row.reimbursement)
+  reimbursement: toNumber(row.reimbursement),
+  customEarnings: toNumber(row.customEarningsTotal),
+  customDeductions: toNumber(row.customDeductionsTotal)
 });
 
 // LOP days + a per-date breakdown, computed the same way the employee's own attendance
@@ -134,6 +136,12 @@ const Payroll = () => {
       const reimbursementClaims = getReimbursementClaimsFor(expenseList, emp._id, selectedMonth, selectedYear);
       const reimbursement = reimbursementClaims.reduce((sum, e) => sum + e.amount, 0);
       const lopInfo = computeLopInfo(emp, attendanceList, leaveList, flexList, selectedMonth, selectedYear);
+      const {
+        earnings: customEarnings,
+        deductions: customDeductions,
+        earningsTotal: customEarningsTotal,
+        deductionsTotal: customDeductionsTotal
+      } = splitCustomSalaryFields(emp.customSalaryFields);
 
       if (payslip) {
         nextRows[emp._id] = {
@@ -146,6 +154,10 @@ const Payroll = () => {
           lopBreakdown: lopInfo.breakdown,
           reimbursement,
           reimbursementClaims,
+          customEarnings,
+          customDeductions,
+          customEarningsTotal,
+          customDeductionsTotal,
           expanded: false,
           lopExpanded: false,
           reimbursementExpanded: false
@@ -161,6 +173,10 @@ const Payroll = () => {
           lopBreakdown: lopInfo.breakdown,
           reimbursement,
           reimbursementClaims,
+          customEarnings,
+          customDeductions,
+          customEarningsTotal,
+          customDeductionsTotal,
           expanded: false,
           lopExpanded: false,
           reimbursementExpanded: false
@@ -264,8 +280,18 @@ const Payroll = () => {
         employeeId: emp._id,
         month: selectedMonth,
         year: selectedYear,
-        earnings: { basic: toNumber(row.basic), hra: toNumber(row.hra), specialAllowance: toNumber(row.specialAllowance) },
-        deductions: { professionalTax: toNumber(row.professionalTax), tds: toNumber(row.tds), lopDays: toNumber(row.lopDays) }
+        earnings: {
+          basic: toNumber(row.basic),
+          hra: toNumber(row.hra),
+          specialAllowance: toNumber(row.specialAllowance),
+          custom: row.customEarnings
+        },
+        deductions: {
+          professionalTax: toNumber(row.professionalTax),
+          tds: toNumber(row.tds),
+          lopDays: toNumber(row.lopDays),
+          custom: row.customDeductions
+        }
       });
       showToast('success', `Payslip processed for ${emp.firstName} ${emp.lastName}`);
       fetchAll();
@@ -305,8 +331,18 @@ const Payroll = () => {
           employeeId: emp._id,
           month: selectedMonth,
           year: selectedYear,
-          earnings: { basic: toNumber(row.basic), hra: toNumber(row.hra), specialAllowance: toNumber(row.specialAllowance) },
-          deductions: { professionalTax: toNumber(row.professionalTax), tds: toNumber(row.tds), lopDays: toNumber(row.lopDays) }
+          earnings: {
+            basic: toNumber(row.basic),
+            hra: toNumber(row.hra),
+            specialAllowance: toNumber(row.specialAllowance),
+            custom: row.customEarnings
+          },
+          deductions: {
+            professionalTax: toNumber(row.professionalTax),
+            tds: toNumber(row.tds),
+            lopDays: toNumber(row.lopDays),
+            custom: row.customDeductions
+          }
         });
       }));
       showToast('success', 'Payroll processed for ' + MONTH_NAMES[selectedMonth - 1]);
@@ -571,6 +607,12 @@ const Payroll = () => {
                                     ))}
                                   </div>
                                 )}
+                                {row.customEarnings.map((f) => (
+                                  <div className="breakdown-row" key={f.name}>
+                                    <span>{f.name}</span>
+                                    <span>{formatCurrency(f.value)}</span>
+                                  </div>
+                                ))}
                                 <div className="breakdown-row total-row">
                                   <span>Gross Earnings</span>
                                   <span>{formatCurrency(computed.grossEarnings)}</span>
@@ -629,6 +671,12 @@ const Payroll = () => {
                                     ))}
                                   </div>
                                 )}
+                                {row.customDeductions.map((f) => (
+                                  <div className="breakdown-row" key={f.name}>
+                                    <span>{f.name}</span>
+                                    <span className="negative">-{formatCurrency(f.value)}</span>
+                                  </div>
+                                ))}
                                 <div className="breakdown-row total-row">
                                   <span>Total deductions</span>
                                   <span className="negative">-{formatCurrency(computed.totalDeductions)}</span>

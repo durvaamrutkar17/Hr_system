@@ -30,7 +30,15 @@ api.interceptors.request.use(
 export const authAPI = {
   register: (userData) => api.post('/auth/register', userData),
   login: (credentials) => api.post('/auth/login', credentials),
-  getMe: () => api.get('/auth/me')
+  getMe: () => api.get('/auth/me'),
+  // Improved authentication: registration lock, invitation system, password
+  // setup, forced password reset, login audit.
+  getRegistrationStatus: () => api.get('/auth/registration-status'),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
+  invite: (invitationData) => api.post('/auth/invite', invitationData),
+  getInvitation: (token) => api.get(`/auth/invite/${token}`),
+  setupPassword: (token, password) => api.post(`/auth/invite/${token}/setup-password`, { password }),
+  getLoginAudit: (params) => api.get('/auth/login-audit', { params })
 };
 
 // Leave API calls
@@ -93,7 +101,9 @@ export const userAPI = {
   getUsers: () => api.get('/users'),
   getUserById: (id) => api.get(`/users/${id}`),
   createEmployee: (employeeData) => api.post('/users', employeeData),
-  updateLeaveBalance: (id, balanceData) => api.patch(`/users/${id}/leave-balance`, balanceData)
+  updateLeaveBalance: (id, balanceData) => api.patch(`/users/${id}/leave-balance`, balanceData),
+  assignRole: (id, roleData) => api.patch(`/users/${id}/role`, roleData),
+  forcePasswordReset: (id) => api.patch(`/users/${id}/force-password-reset`)
 };
 
 // Announcement API calls

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { holidayAPI } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { canManageHolidays } from '../permissions/permissions';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -20,8 +21,10 @@ const Holidays = ({ viewMode }) => {
   const [confirmState, setConfirmState] = useState(null);
   const { message, showToast } = useToast();
 
-  const isReviewer = user?.role === 'manager' || user?.role === 'admin';
-  const canManage = isReviewer && viewMode === 'mgr';
+  // Old inline check (kept for reference):
+  // const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  // const canManage = isReviewer && viewMode === 'mgr';
+  const canManage = canManageHolidays(user) && viewMode === 'mgr';
 
   useEffect(() => {
     fetchHolidays();

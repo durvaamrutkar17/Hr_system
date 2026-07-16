@@ -173,12 +173,12 @@ const Dashboard = () => {
 
   const probationRows = onProbation
     ? buildMonthAttendanceRows({
-        dateOfJoining: user?.dateOfJoining,
-        attendance: monthAttendance,
-        leaves: monthLeaves,
-        month: new Date().getMonth() + 1,
-        year: new Date().getFullYear()
-      })
+      dateOfJoining: user?.dateOfJoining,
+      attendance: monthAttendance,
+      leaves: monthLeaves,
+      month: new Date().getMonth() + 1,
+      year: new Date().getFullYear()
+    })
     : [];
   const { presentCount, absentCount, leaveCount } = summarizeMonthRows(probationRows);
 

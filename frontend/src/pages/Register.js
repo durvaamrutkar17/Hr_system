@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { authAPI } from '../services/api';
 import PasswordInput from '../components/PasswordInput';
 import { validateEmployeeForm } from '../utils/formValidation';
 import './Login.css';
@@ -19,8 +20,17 @@ const Register = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Public registration is now bootstrap-only (first account = Super Admin).
+  // `null` = still checking, `true`/`false` once we know.
+  const [registrationOpen, setRegistrationOpen] = useState(null);
   const { register } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    authAPI.getRegistrationStatus()
+      .then((res) => setRegistrationOpen(!!res.data.open))
+      .catch(() => setRegistrationOpen(true)); // fail open so a broken check never locks out the very first setup
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -58,6 +68,16 @@ const Register = () => {
           <p>HR Portal - Register</p>
         </div>
 
+        {/* Old unconditional form render (kept for reference): registration
+            used to always be open, so the form below rendered unconditionally
+            here with no registrationOpen check at all. */}
+        {registrationOpen === false ? (
+          <div className="error-message">
+            Registration is closed. This HR system already has an administrator -
+            please ask them for an invite link instead of registering here.
+          </div>
+        ) : (
+        <>
         {error && <div className="error-message">{error}</div>}
 
         <form onSubmit={handleSubmit} noValidate>
@@ -182,6 +202,8 @@ const Register = () => {
             {loading ? 'Registering...' : 'Register'}
           </button>
         </form>
+        </>
+        )}
 
         <div className="login-footer">
           <p>Already have an account? <a href="/login">Login here</a></p>

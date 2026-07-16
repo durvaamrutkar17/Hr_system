@@ -5,6 +5,8 @@ import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import AcceptInvite from './pages/AcceptInvite';
+import ForcePasswordReset from './pages/ForcePasswordReset';
 import Dashboard from './pages/Dashboard';
 import Leave from './pages/Leave';
 import Announcements from './pages/Announcements';
@@ -26,6 +28,17 @@ import Payroll from './pages/Payroll';
 import PostAnnouncements from './pages/PostAnnouncements';
 import AssetTracker from './pages/AssetTracker';
 import ResignationApprovals from './pages/ResignationApprovals';
+import {
+  canManageUsers,
+  canViewTeamAttendance,
+  canApproveLeave,
+  canApproveAttendanceCorrection,
+  canManagePayroll,
+  canManageAnnouncements,
+  canManageAssets,
+  canApproveResignation,
+  isReviewer as isReviewerPermission
+} from './permissions/permissions';
 import './App.css';
 
 const PrivateRoute = ({ children }) => {
@@ -44,7 +57,8 @@ const AppContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('viewMode') || 'me');
 
-  const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  // Old inline check (kept for reference): const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  const isReviewer = isReviewerPermission(user);
   const effectiveViewMode = isReviewer ? viewMode : 'me';
 
   const toggleSidebar = () => {
@@ -75,7 +89,16 @@ const AppContent = () => {
 
   return (
     <>
+      {/* Old guard (kept for reference): {user ? (<div className="app-layout">...</div>) : (...)}
+          Forced password reset now sits between "logged in" and "show the
+          normal app shell": while user.mustResetPassword is true (set by an
+          Admin/HR force-reset action), the whole app is replaced by
+          ForcePasswordReset until they clear it - the backend enforces the
+          same block server-side (see middleware/auth.js protect). */}
       {user ? (
+        user.mustResetPassword ? (
+        <ForcePasswordReset />
+        ) : (
         <div className="app-layout">
           <Header onToggleSidebar={toggleSidebar} viewMode={effectiveViewMode} onChangeViewMode={changeViewMode} />
           <div className="app-container">
@@ -83,8 +106,10 @@ const AppContent = () => {
             <main className="main-content">
               <Routes>
                 <Route path="/dashboard" element={effectiveViewMode === 'mgr' ? <ManagerDashboard /> : <Dashboard />} />
-                <Route path="/employees" element={isReviewer ? <Employees /> : <Navigate to="/dashboard" />} />
-                <Route path="/employees/:employeeId" element={isReviewer ? <EmployeeProfile /> : <Navigate to="/dashboard" />} />
+                {/* Old guard (kept for reference): isReviewer ? <Employees /> : <Navigate to="/dashboard" /> */}
+                <Route path="/employees" element={canManageUsers(user) ? <Employees /> : <Navigate to="/dashboard" />} />
+                {/* Old guard (kept for reference): isReviewer ? <EmployeeProfile /> : <Navigate to="/dashboard" /> */}
+                <Route path="/employees/:employeeId" element={canManageUsers(user) ? <EmployeeProfile /> : <Navigate to="/dashboard" />} />
                 <Route path="/leave" element={<Leave />} />
                 <Route path="/announcements" element={<Announcements />} />
                 <Route path="/salary" element={<Salary />} />
@@ -95,22 +120,25 @@ const AppContent = () => {
                 <Route path="/holidays" element={<Holidays viewMode={effectiveViewMode} />} />
                 <Route path="/reimbursement" element={<Reimbursement />} />
                 <Route path="/exit" element={<Resignation />} />
-                <Route path="/team-attendance" element={isReviewer ? <TeamAttendance /> : <Navigate to="/dashboard" />} />
-                <Route path="/leave-approvals" element={isReviewer ? <LeaveApprovals /> : <Navigate to="/dashboard" />} />
-                <Route path="/correction-approvals" element={isReviewer ? <CorrectionApprovals /> : <Navigate to="/dashboard" />} />
-                <Route path="/payroll" element={isReviewer ? <Payroll /> : <Navigate to="/dashboard" />} />
-                <Route path="/post-announcements" element={isReviewer ? <PostAnnouncements /> : <Navigate to="/dashboard" />} />
-                <Route path="/asset-tracker" element={isReviewer ? <AssetTracker /> : <Navigate to="/dashboard" />} />
-                <Route path="/resignation-approvals" element={isReviewer ? <ResignationApprovals /> : <Navigate to="/dashboard" />} />
+                {/* Old guards (kept for reference): all used isReviewer ? <Page /> : <Navigate to="/dashboard" /> */}
+                <Route path="/team-attendance" element={canViewTeamAttendance(user) ? <TeamAttendance /> : <Navigate to="/dashboard" />} />
+                <Route path="/leave-approvals" element={canApproveLeave(user) ? <LeaveApprovals /> : <Navigate to="/dashboard" />} />
+                <Route path="/correction-approvals" element={canApproveAttendanceCorrection(user) ? <CorrectionApprovals /> : <Navigate to="/dashboard" />} />
+                <Route path="/payroll" element={canManagePayroll(user) ? <Payroll /> : <Navigate to="/dashboard" />} />
+                <Route path="/post-announcements" element={canManageAnnouncements(user) ? <PostAnnouncements /> : <Navigate to="/dashboard" />} />
+                <Route path="/asset-tracker" element={canManageAssets(user) ? <AssetTracker /> : <Navigate to="/dashboard" />} />
+                <Route path="/resignation-approvals" element={canApproveResignation(user) ? <ResignationApprovals /> : <Navigate to="/dashboard" />} />
                 <Route path="/" element={<Navigate to="/dashboard" />} />
               </Routes>
             </main>
           </div>
         </div>
+        )
       ) : (
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/" element={<Navigate to="/login" />} />
         </Routes>
       )}

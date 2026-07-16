@@ -5,6 +5,7 @@ import { MdDashboard } from 'react-icons/md';
 import { AiOutlineCalendar, AiOutlineFile, AiOutlineDollar } from 'react-icons/ai';
 import { BiNote } from 'react-icons/bi';
 import { useAuth } from '../context/AuthContext';
+import { isReviewer as isReviewerPermission } from '../permissions/permissions';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 
 const employeeMenuItems = [
@@ -26,7 +27,8 @@ const managerMenuItems = [
   { icon: <FiUsers />, label: 'Team Attendance', path: '/team-attendance' },
   { icon: <FiCheckCircle />, label: 'Leave Approvals', path: '/leave-approvals' },
   { icon: <FiClipboard />, label: 'Correction Approvals', path: '/correction-approvals' },
-  { icon: <FiDollarSign />, label: 'Payroll', path: '/payroll' },
+  // Payroll option removed from Manager panel per request (route still exists, just not linked here).
+  // { icon: <FiDollarSign />, label: 'Payroll', path: '/payroll' },
   { icon: <FiRadio />, label: 'Post Announcements', path: '/post-announcements' },
   { icon: <FiMonitor />, label: 'Asset Tracker', path: '/asset-tracker' },
   { icon: <FiUserX />, label: 'Resignation Approvals', path: '/resignation-approvals' }
@@ -37,7 +39,8 @@ const Sidebar = ({ isOpen, toggleSidebar, viewMode }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  // Old inline check (kept for reference): const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  const isReviewer = isReviewerPermission(user);
   const menuItems = isReviewer && viewMode === 'mgr' ? managerMenuItems : employeeMenuItems;
 
   const handleLogout = () => {

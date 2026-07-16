@@ -1,11 +1,13 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { isReviewer as isReviewerPermission } from '../permissions/permissions';
 import './Header.css';
 import { FiMenu } from 'react-icons/fi';
 
 const Header = ({ onToggleSidebar, viewMode, onChangeViewMode }) => {
   const { user } = useAuth();
-  const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  // Old inline check (kept for reference): const isReviewer = user?.role === 'manager' || user?.role === 'admin';
+  const isReviewer = isReviewerPermission(user);
 
   return (
     <header className="header">

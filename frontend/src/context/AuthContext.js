@@ -56,13 +56,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Called after a successful POST /api/auth/invite/:token/setup-password -
+  // same shape as login/register (token + user), used to auto-login someone
+  // who just accepted an invitation. See pages/AcceptInvite.js.
+  const completeInviteSetup = (token, user) => {
+    localStorage.setItem('token', token);
+    setUser(user);
+  };
+
+  // Called after a successful POST /api/auth/reset-password while
+  // mustResetPassword was set, so the app can drop the forced-reset gate
+  // without requiring a fresh login. See pages/ForcePasswordReset.js.
+  const clearMustResetPassword = () => {
+    setUser((prev) => (prev ? { ...prev, mustResetPassword: false } : prev));
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, error, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, error, login, register, logout, completeInviteSetup, clearMustResetPassword }}>
       {children}
     </AuthContext.Provider>
   );

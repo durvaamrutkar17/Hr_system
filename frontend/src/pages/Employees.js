@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { canCreateUsers } from '../permissions/permissions';
 import { userAPI, attendanceAPI } from '../services/api';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
@@ -197,9 +198,18 @@ const Employees = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
-            <button className="add-employee-btn" onClick={() => setShowAddModal(true)}>
-              + Add Employee
-            </button>
+            {/* Old unconditional button (kept for reference): every reviewer
+                (including a plain manager) could add employees.
+                <button className="add-employee-btn" onClick={() => setShowAddModal(true)}>
+                  + Add Employee
+                </button>
+                "Only Admin/HR can create users" - a manager who isn't also
+                Admin/HR no longer sees this option. */}
+            {canCreateUsers(user) && (
+              <button className="add-employee-btn" onClick={() => setShowAddModal(true)}>
+                + Add Employee
+              </button>
+            )}
           </div>
         </div>
         {loading ? (

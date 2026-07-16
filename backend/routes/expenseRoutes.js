@@ -7,6 +7,8 @@ const {
   updateExpense
 } = require('../controllers/expenseController');
 const { protect, authorize } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/permission');
+const { canApproveExpense } = require('../permissions/permissionEngine');
 
 const router = express.Router();
 
@@ -27,6 +29,7 @@ const upload = multer({
 
 router.get('/', protect, getExpenses);
 router.post('/', protect, upload.array('receipts', 5), createExpense);
-router.put('/:id', protect, authorize('manager', 'admin'), updateExpense);
+// Old middleware (kept for reference): router.put('/:id', protect, authorize('manager', 'admin'), updateExpense);
+router.put('/:id', protect, requirePermission(canApproveExpense), updateExpense);
 
 module.exports = router;

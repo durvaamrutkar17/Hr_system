@@ -8,6 +8,8 @@ const {
   addCompanyDocument
 } = require('../controllers/documentController');
 const { protect, authorize } = require('../middleware/auth');
+const { requirePermission } = require('../middleware/permission');
+const { canManageDocuments } = require('../permissions/permissionEngine');
 
 const router = express.Router();
 
@@ -29,6 +31,7 @@ const upload = multer({
 router.get('/', protect, getDocuments);
 router.post('/upload', protect, upload.single('file'), uploadDocument);
 router.delete('/:id', protect, deleteDocument);
-router.post('/company', protect, authorize('manager', 'admin'), upload.single('file'), addCompanyDocument);
+// Old middleware (kept for reference): router.post('/company', protect, authorize('manager', 'admin'), upload.single('file'), addCompanyDocument);
+router.post('/company', protect, requirePermission(canManageDocuments), upload.single('file'), addCompanyDocument);
 
 module.exports = router;

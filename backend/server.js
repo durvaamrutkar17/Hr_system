@@ -33,6 +33,7 @@ app.use('/api/documents', require('./routes/documentRoutes'));
 app.use('/api/resignations', require('./routes/resignationRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/flex-hours', require('./routes/flexHoursRoutes'));
+app.use('/api/hierarchy', require('./routes/hierarchyRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,0 +1,43 @@
+.profile-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 16px 0;
+  border-bottom: 1px solid #e5e5e5;
+  padding-bottom: 12px;
+}
+
+.profile-tab-btn {
+  padding: 8px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 20px;
+  background-color: white;
+  color: #555;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.profile-tab-btn:hover {
+  border-color: #1b4d4d;
+  color: #1b4d4d;
+}
+
+.profile-tab-btn.active {
+  background-color: #1b4d4d;
+  border-color: #1b4d4d;
+  color: white;
+}
+
+@media (max-width: 768px) {
+  .profile-tabs {
+    gap: 4px;
+  }
+
+  .profile-tab-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
+}

@@ -1,13 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { leaveAPI } from '../services/api';
+import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../permissions/permissions';
 import useToast from '../hooks/useToast';
 import Toast from '../components/Toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import './LeaveApprovals.css';
 
+// Leave module upgrade: hierarchy approval. A leave with a non-empty
+// approvalChain (Team Lead -> Manager -> Department Head -> HR) must be
+// actioned one stage at a time by whoever the chain identifies for the
+// current pending stage - see backend/controllers/leaveController.js
+// updateLeave. This mirrors that same authorization check client-side so
+// the Approve/Reject buttons only show up for the reviewer whose turn it
+// actually is; everyone else sees a read-only "awaiting X approval" badge
+// instead of buttons that would just 403.
+const isMyStageToAction = (user, stage) => {
+  if (!stage) return false;
+  if (stage.level === 'HR') {
+    return isAdmin(user) || user?.organizationLevel === 'HR';
+  }
+  return String(user?._id) === String(stage.approverId) || isAdmin(user);
+};
+
 const FILTERS = ['pending', 'approved', 'rejected', 'all'];
 
 const LeaveApprovals = () => {
+  const { user } = useAuth();
   const [leaves, setLeaves] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('pending');
@@ -78,43 +97,64 @@ const LeaveApprovals = () => {
           <p className="loading-text">Loading...</p>
         ) : filteredLeaves.length > 0 ? (
           <div className="approvals-list">
-            {filteredLeaves.map((leave) => (
-              <div key={leave._id} className="approval-row">
-                <div className="approval-main">
-                  <p className="approval-name">
-                    {leave.employeeId?.firstName} {leave.employeeId?.lastName}
-                    <span className="approval-type"> — {leave.leaveType} Leave</span>
-                  </p>
-                  <p className="approval-meta">
-                    {new Date(leave.startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' – '}
-                    {new Date(leave.endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
-                    {' · '}{leave.numberOfDays} day{leave.numberOfDays !== 1 ? 's' : ''}
-                  </p>
-                  <p className="approval-reason">{leave.reason}</p>
-                </div>
-                {leave.status === 'pending' ? (
-                  <div className="approval-actions">
-                    <button
-                      className="approve-btn"
-                      disabled={processingId === leave._id}
-                      onClick={() => handleDecision(leave._id, 'approved')}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="reject-btn"
-                      disabled={processingId === leave._id}
-                      onClick={() => handleDecision(leave._id, 'rejected')}
-                    >
-                      Reject
-                    </button>
+            {filteredLeaves.map((leave) => {
+              const chain = leave.approvalChain || [];
+              const currentStage = chain.find((s) => s.status === 'pending');
+              // Old condition (kept for reference): leave.status === 'pending'
+              // was the only thing gating whether Approve/Reject showed up -
+              // now, for a leave with a hierarchy chain, they only show up
+              // for whoever's turn it currently is.
+              const canActNow = leave.status === 'pending' && (chain.length === 0 || isMyStageToAction(user, currentStage));
+
+              return (
+                <div key={leave._id} className="approval-row">
+                  <div className="approval-main">
+                    <p className="approval-name">
+                      {leave.employeeId?.firstName} {leave.employeeId?.lastName}
+                      <span className="approval-type"> — {leave.leaveType} Leave</span>
+                    </p>
+                    <p className="approval-meta">
+                      {new Date(leave.startDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' – '}
+                      {new Date(leave.endDate).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {' · '}{leave.numberOfDays} day{leave.numberOfDays !== 1 ? 's' : ''}
+                    </p>
+                    <p className="approval-reason">{leave.reason}</p>
+                    {chain.length > 0 && (
+                      <div className="approval-chain">
+                        {chain.map((stage, idx) => (
+                          <span key={idx} className={`status-badge chain-badge ${stage.status}`}>
+                            {stage.level}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <span className={`status-badge ${leave.status}`}>{leave.status}</span>
-                )}
-              </div>
-            ))}
+                  {canActNow ? (
+                    <div className="approval-actions">
+                      <button
+                        className="approve-btn"
+                        disabled={processingId === leave._id}
+                        onClick={() => handleDecision(leave._id, 'approved')}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        className="reject-btn"
+                        disabled={processingId === leave._id}
+                        onClick={() => handleDecision(leave._id, 'rejected')}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : leave.status === 'pending' ? (
+                    <span className="status-badge pending">Awaiting {currentStage?.level}</span>
+                  ) : (
+                    <span className={`status-badge ${leave.status}`}>{leave.status}</span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <p className="no-records">No {filter !== 'all' ? filter : ''} leave requests</p>

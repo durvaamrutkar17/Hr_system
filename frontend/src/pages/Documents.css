@@ -74,6 +74,13 @@
   font-size: 13px;
 }
 
+.doc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
 .verify-badge {
   padding: 4px 10px;
   border-radius: 20px;
@@ -145,9 +152,11 @@
   flex-wrap: wrap;
 }
 
-.upload-form input[type='text'] {
+.upload-form input[type='text'],
+.upload-form input[type='date'],
+.upload-form select {
   flex: 1;
-  min-width: 220px;
+  min-width: 160px;
   padding: 12px;
   border: 1px solid #ddd;
   border-radius: 4px;
@@ -155,7 +164,9 @@
   font-family: inherit;
 }
 
-.upload-form input[type='text']:focus {
+.upload-form input[type='text']:focus,
+.upload-form input[type='date']:focus,
+.upload-form select:focus {
   outline: none;
   border-color: #1b4d4d;
   box-shadow: 0 0 5px rgba(27, 77, 77, 0.1);

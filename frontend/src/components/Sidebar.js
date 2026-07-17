@@ -13,7 +13,8 @@ const employeeMenuItems = [
   { icon: <FiClock />, label: 'Attendance', path: '/attendance' },
   { icon: <FiSun />, label: 'Leave', path: '/leave' },
   { icon: <AiOutlineDollar />, label: 'Salary', path: '/salary' },
-  { icon: <AiOutlineFile />, label: 'Documents', path: '/documents' },
+  // Old label (kept for reference): 'Documents' - Documents module redesign renamed this page "My Documents"
+  { icon: <AiOutlineFile />, label: 'My Documents', path: '/documents' },
   { icon: <AiOutlineCalendar />, label: 'Holidays', path: '/holidays' },
   { icon: <AiOutlineFile />, label: 'Reimbursement', path: '/reimbursement' },
   { icon: <BiNote />, label: 'Announcements', path: '/announcements' },

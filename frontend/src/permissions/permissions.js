@@ -75,6 +75,9 @@ export const canViewEmployee = (user, targetEmployeeId) => {
 // Employee" button on this instead of on canManageUsers/isReviewer).
 export const canCreateUsers = (user) => isAdmin(user) || user?.organizationLevel === 'HR';
 export const canForcePasswordReset = (user) => canCreateUsers(user);
+// "HR owns official employee documents" - narrower than canManageDocuments.
+export const canManageOfficialDocuments = (user) => canCreateUsers(user);
+export const canManageDocumentRequests = (user) => canManageOfficialDocuments(user);
 export const canViewLoginAudit = (user) => isAdmin(user);
 export const canAssignRole = (user, desiredRole, desiredOrganizationLevel) => {
   if (!canCreateUsers(user)) return false;
@@ -89,6 +92,14 @@ export const canViewHierarchy = (user, targetEmployeeId) => {
   if (isReviewer(user)) return true;
   return isSelf(user, targetEmployeeId);
 };
+
+// ---- Performance (Employee Profile "Performance" tab) ----
+export const canViewPerformance = (user, targetEmployeeId) => {
+  if (!user) return false;
+  if (isReviewer(user)) return true;
+  return isSelf(user, targetEmployeeId);
+};
+export const canManagePerformance = (user) => isReviewer(user);
 
 // ---- Org-hierarchy scoped views (new; not yet bound to a page) ----
 export const canViewDepartment = (user) => isReviewer(user);

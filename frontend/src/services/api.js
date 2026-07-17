@@ -85,7 +85,18 @@ export const documentAPI = {
   addCompanyDocument: (formData) => api.post('/documents/company', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  deleteDocument: (id) => api.delete(`/documents/${id}`)
+  deleteDocument: (id) => api.delete(`/documents/${id}`),
+  // Documents module redesign: version history + verification.
+  getVersions: (id) => api.get(`/documents/${id}/versions`),
+  verifyDocument: (id, data) => api.patch(`/documents/${id}/verify`, data)
+};
+
+// Document request API calls (Documents module redesign: "Document
+// requests" + "Approval workflow")
+export const documentRequestAPI = {
+  getRequests: (params) => api.get('/documents/requests', { params }),
+  createRequest: (data) => api.post('/documents/requests', data),
+  updateRequest: (id, data) => api.patch(`/documents/requests/${id}`, data)
 };
 
 // Resignation API calls
@@ -135,6 +146,19 @@ export const flexHoursAPI = {
   getFlexHoursRequests: (params) => api.get('/flex-hours', { params }),
   getFlexHoursBalance: () => api.get('/flex-hours/balance'),
   updateFlexHoursRequest: (id, updateData) => api.put(`/flex-hours/${id}`, updateData)
+};
+
+// Reporting hierarchy API calls (Employee Profile "Reporting Hierarchy" tab)
+export const hierarchyAPI = {
+  getDirectReports: (id) => api.get(`/hierarchy/direct-reports/${id}`),
+  getReportingChain: (id) => api.get(`/hierarchy/reporting-chain/${id}`),
+  getCompleteHierarchy: (id) => api.get(id ? `/hierarchy/complete/${id}` : '/hierarchy/complete')
+};
+
+// Performance review API calls (Employee Profile "Performance" tab)
+export const performanceAPI = {
+  getEmployeePerformance: (id) => api.get(`/performance/employee/${id}`),
+  createReview: (reviewData) => api.post('/performance', reviewData)
 };
 
 export default api;

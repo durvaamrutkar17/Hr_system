@@ -165,6 +165,23 @@
   color: #721c24;
 }
 
+.status-badge.skipped {
+  background-color: #e9ecef;
+  color: #6c757d;
+}
+
+.approval-chain {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chain-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
 .no-records {
   text-align: center;
   padding: 40px 20px;

@@ -99,8 +99,24 @@ function canManageHolidays(user) {
 
 // ---- Documents ----
 // Replaces: authorize('manager','admin') on POST /api/documents/company
+// Kept for the document VERIFICATION action (any reviewer can verify a
+// document's authenticity) - see canManageOfficialDocuments below for the
+// narrower "who can issue an official document" check.
 function canManageDocuments(user) {
   return isReviewer(user);
+}
+// "HR owns official employee documents" - narrower than canManageDocuments/
+// isReviewer on purpose: issuing an official document (Offer Letter, PAN,
+// Payslip, etc.) is now Admin/HR only, same shape as canCreateUsers. A plain
+// 'manager' reviewer can still verify documents (canManageDocuments above)
+// but can no longer issue/replace official ones.
+function canManageOfficialDocuments(user) {
+  return canCreateUsers(user);
+}
+// Approving/rejecting a "please issue me X" document request is the same
+// Admin/HR privilege as actually issuing the document.
+function canManageDocumentRequests(user) {
+  return canManageOfficialDocuments(user);
 }
 
 // ---- Resignations ----
@@ -163,6 +179,18 @@ function canViewHierarchy(user, targetEmployeeId) {
   return isSelf(user, targetEmployeeId);
 }
 
+// ---- Performance (Employee Profile "Performance" tab) ----
+// Same self-or-reviewer shape as canViewEmployee/canViewHierarchy.
+function canViewPerformance(user, targetEmployeeId) {
+  if (!user) return false;
+  if (isReviewer(user)) return true;
+  return isSelf(user, targetEmployeeId);
+}
+// Only a reviewer can write a review (nobody reviews themselves).
+function canManagePerformance(user) {
+  return isReviewer(user);
+}
+
 // ---- Org-hierarchy scoped views (new capabilities; not yet bound to a route) ----
 // Intended for future "my department only" data scoping once that filtering
 // logic is added; currently equivalent to isReviewer.
@@ -201,6 +229,8 @@ module.exports = {
   canManageHolidays,
   // documents
   canManageDocuments,
+  canManageOfficialDocuments,
+  canManageDocumentRequests,
   // resignations
   canApproveResignation,
   // users / employees
@@ -213,6 +243,9 @@ module.exports = {
   canAssignRole,
   // reporting hierarchy
   canViewHierarchy,
+  // performance
+  canViewPerformance,
+  canManagePerformance,
   // hierarchy-scoped views
   canViewDepartment,
   canViewCompany

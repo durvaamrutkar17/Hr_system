@@ -1,5 +1,6 @@
 const Attendance = require('../models/Attendance');
 const AttendanceCorrection = require('../models/AttendanceCorrection');
+const { getVisibleEmployeeIds, canAccessEmployeeViaHierarchy } = require('../utils/hierarchyScope');
 
 // @desc    Check in
 // @route   POST /api/attendance/check-in
@@ -126,10 +127,29 @@ exports.checkOut = async (req, res) => {
 exports.getAttendance = async (req, res) => {
   try {
     const { employeeId, month, year } = req.query;
-    const query = {};
 
-    if (employeeId) query.employeeId = employeeId;
-    
+    // Old query (kept for reference): no role/hierarchy scoping existed at
+    // all here - any authenticated user, including a plain employee, could
+    // pass any employeeId and see that person's full attendance history.
+    // const query = {};
+    // if (employeeId) query.employeeId = employeeId;
+
+    // Hierarchy-based visibility (Attendance upgrade): Employee sees only
+    // themselves; Team Lead/Manager/VP see their recursive reports; Department
+    // Head sees their department; CEO/HR/Admin see the whole company.
+    const query = {};
+    const visibleIds = await getVisibleEmployeeIds(req.user);
+    if (visibleIds === 'ALL') {
+      if (employeeId) query.employeeId = employeeId;
+    } else if (employeeId) {
+      if (!visibleIds.includes(String(employeeId))) {
+        return res.status(403).json({ success: false, message: "Not authorized to view this employee's attendance" });
+      }
+      query.employeeId = employeeId;
+    } else {
+      query.employeeId = { $in: visibleIds };
+    }
+
     if (month && year) {
       const startDate = new Date(year, month - 1, 1);
       const endDate = new Date(year, month, 0);
@@ -190,12 +210,25 @@ exports.requestCorrection = async (req, res) => {
 exports.getCorrectionRequests = async (req, res) => {
   try {
     const { employeeId } = req.query;
-    const query = {};
 
-    if (employeeId) {
+    // Old query (kept for reference): only plain 'employee' role was
+    // self-scoped; any reviewer, or anyone who simply passed an explicit
+    // employeeId, got unrestricted access with no hierarchy awareness.
+    // const query = {};
+    // if (employeeId) { query.employeeId = employeeId; }
+    // else if (req.user.role === 'employee') { query.employeeId = req.user.id; }
+
+    const query = {};
+    const visibleIds = await getVisibleEmployeeIds(req.user);
+    if (visibleIds === 'ALL') {
+      if (employeeId) query.employeeId = employeeId;
+    } else if (employeeId) {
+      if (!visibleIds.includes(String(employeeId))) {
+        return res.status(403).json({ success: false, message: "Not authorized to view this employee's correction requests" });
+      }
       query.employeeId = employeeId;
-    } else if (req.user.role === 'employee') {
-      query.employeeId = req.user.id;
+    } else {
+      query.employeeId = { $in: visibleIds };
     }
 
     const corrections = await AttendanceCorrection.find(query)
@@ -219,6 +252,23 @@ exports.updateCorrectionRequest = async (req, res) => {
     const existingCorrection = await AttendanceCorrection.findById(req.params.id);
     if (!existingCorrection) {
       return res.status(404).json({ success: false, message: 'Correction request not found' });
+    }
+
+    // "Attendance corrections should follow hierarchy approvals": the route
+    // still gates on canApproveAttendanceCorrection (any reviewer) as a
+    // coarse check, but that alone used to let ANY manager/admin approve
+    // ANY employee's correction company-wide. This uses the same
+    // getVisibleEmployeeIds scope as the listing endpoints above, so
+    // "who can see it" and "who can approve it" never disagree - a Team
+    // Lead/Manager/VP/Department Head can only approve requests from
+    // employees within their own hierarchy scope; CEO/HR/Admin (and a
+    // legacy 'manager' with no organizationLevel set yet) can approve anyone's.
+    const canApprove = await canAccessEmployeeViaHierarchy(req.user, existingCorrection.employeeId);
+    if (!canApprove) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to approve this employee's correction request (outside your reporting hierarchy)"
+      });
     }
 
     let attendance = null;
